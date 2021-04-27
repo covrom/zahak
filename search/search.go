@@ -146,7 +146,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 
 	hash := position.Hash()
 	nHashMove, nEval, nDepth, nType, found := e.TranspositionTable.Get(hash)
-	if found && nDepth >= depthLeft {
+	if !isPvNode && found && nDepth >= depthLeft {
 		if nEval >= beta && (nType == UpperBound || nType == Exact) {
 			e.CacheHit()
 			return beta, true
