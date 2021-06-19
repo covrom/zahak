@@ -18,6 +18,7 @@ var p = WhitePawn.Weight()
 var r = WhiteRook.Weight()
 var b = WhiteBishop.Weight()
 var q = WhiteQueen.Weight()
+var reverseFutilityMargin = [7]int16{0, p, 2 * p, 3 * p, 5 * p, 7 * p, 9 * p}
 
 func (e *Engine) rootSearch(depth int8) {
 
@@ -199,15 +200,18 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 		}
 	}
 
-	isNullMoveAllowed := !isRootNode && !isPvNode && currentMove != EmptyMove && !isInCheck && !position.IsEndGame()
+	isNullMoveAllowed := !isRootNode && !isPvNode && currentMove != EmptyMove && !isInCheck
 	// Reverse Futility Pruning
-	reverseFutilityMargin := int16(depthLeft) * (b - p)
-	// if improving {
-	// 	reverseFutilityMargin += int16(depthLeft) * p
-	// }
-	if isNullMoveAllowed && depthLeft < 7 && eval-reverseFutilityMargin >= beta {
+	var rmargin int16
+	if depthLeft < 7 {
+		rmargin = reverseFutilityMargin[depthLeft]
+	}
+	if improving {
+		rmargin += int16(depthLeft) * p
+	}
+	if isNullMoveAllowed && depthLeft < 7 && eval-rmargin >= beta {
 		e.info.rfpCounter += 1
-		return eval - reverseFutilityMargin /* fail soft */
+		return eval - rmargin /* fail soft */
 	}
 
 	// NullMove pruning
@@ -216,7 +220,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 		R = 3
 	}
 
-	if isNullMoveAllowed && depthLeft > R {
+	if isNullMoveAllowed && depthLeft > R && !position.IsEndGame() {
 		ep := position.MakeNullMove()
 		e.pred.Push(position.Hash())
 		e.innerLines[searchHeight+1].Recycle()
