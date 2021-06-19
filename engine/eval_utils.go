@@ -223,6 +223,20 @@ func (p *Position) CountDoublePawns(color Color) int16 {
 	return 0
 }
 
+func (p *Position) CountPawnIslands(color Color) int16 {
+	var pawns uint64
+	switch color {
+	case White:
+		pawns = p.Board.whitePawn
+	case Black:
+		pawns = p.Board.blackPawn
+	}
+	pawnFills := FileFill(pawns)
+	islandFills := pawnFills & (pawnFills ^ (pawnFills << 1))
+	islandCount := bits.OnesCount64(islandFills & rank1)
+	return int16(islandCount)
+}
+
 func (p *Position) CountIsolatedPawns(color Color) int16 {
 	switch color {
 	case White:

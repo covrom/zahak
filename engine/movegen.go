@@ -822,6 +822,7 @@ const notGFile = uint64(0xbfbfbfbfbfbfbfbf)
 const notHFile = uint64(0x7f7f7f7f7f7f7f7f) // ~0x8080808080808080
 const notABFile = notAFile & notBFile
 const notGHFile = notGFile & notHFile
+const rank1 = uint64(0x00000000000000FF)
 const rank2 = uint64(0x000000000000FF00)
 const rank4 = uint64(0x00000000FF000000)
 const rank5 = uint64(0x000000FF00000000)

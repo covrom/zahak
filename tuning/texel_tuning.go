@@ -117,6 +117,8 @@ func computeInitialGuesses() []int16 {
 	guesses = append(guesses, EndgameKingZoneOpenFilePenalty)        // 811
 	guesses = append(guesses, MiddlegameKingZoneMissingPawnPenalty)  // 812
 	guesses = append(guesses, EndgameKingZoneMissingPawnPenalty)     // 813
+	guesses = append(guesses, MiddlegamePawnIslandPenalty)           // 814
+	guesses = append(guesses, EndgamePawnIslandPenalty)              // 815
 
 	return guesses
 }
@@ -136,6 +138,7 @@ func updateEvalParams(guesses []int16) {
 		EarlyKingPst[i] = guesses[i+10*64]
 		LateKingPst[i] = guesses[i+11*64]
 	}
+
 	MiddlegameBackwardPawnPenalty = guesses[768]
 	EndgameBackwardPawnPenalty = guesses[769]
 	MiddlegameIsolatedPawnPenalty = guesses[770]
@@ -182,6 +185,8 @@ func updateEvalParams(guesses []int16) {
 	EndgameKingZoneOpenFilePenalty = guesses[811]
 	MiddlegameKingZoneMissingPawnPenalty = guesses[812]
 	EndgameKingZoneMissingPawnPenalty = guesses[813]
+	MiddlegamePawnIslandPenalty = guesses[814]
+	EndgamePawnIslandPenalty = guesses[815]
 }
 
 func toEvalParams(guesses []float64) []int16 {
@@ -265,6 +270,8 @@ func printOptimalGuesses(guesses []int16) {
 	fmt.Printf("var EndgameKingZoneOpenFilePenalty int16 = %d\n", guesses[811])
 	fmt.Printf("var MiddlegameKingZoneMissingPawnPenalty int16 = %d\n", guesses[812])
 	fmt.Printf("var EndgameKingZoneMissingPawnPenalty int16 = %d\n", guesses[813])
+	fmt.Printf("var MiddlegamePawnIslandPenalty int16 = %d\n", guesses[814])
+	fmt.Printf("var EndgamePawnIslandPenalty int16 = %d\n", guesses[815])
 
 	// fmt.Printf("var MiddlegameCastlingAward int16 = %d\n", guesses[792])
 	fmt.Println("===================================================")

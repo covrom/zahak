@@ -168,3 +168,19 @@ func TestPassedPawns(t *testing.T) {
 		t.Error(fmt.Sprintf("Expected: (%d, %d)\n, Got: (%d, %d)\n", expectedF, expectedS, actualF, actualS))
 	}
 }
+
+func TestPawnIslands(t *testing.T) {
+	fen := "rnbqkbnr/pp1ppppp/8/8/P7/8/1P1PP1PP/RNBQKBNR w KQkq - 0 1"
+	game := FromFen(fen, true)
+
+	expected := int16(3)
+	actual := game.Position().CountPawnIslands(White)
+	if actual != expected {
+		t.Error(fmt.Sprintf("Expected: %d\n, Got: %d\n", expected, actual))
+	}
+	expected = int16(2)
+	actual = game.Position().CountPawnIslands(Black)
+	if actual != expected {
+		t.Error(fmt.Sprintf("Expected: %d\n, Got: %d\n", expected, actual))
+	}
+}
