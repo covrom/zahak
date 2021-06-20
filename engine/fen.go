@@ -80,7 +80,7 @@ func (g *Game) Fen() string {
 }
 
 func bitboardFromFen(fen string) *Bitboard {
-	board := &Bitboard{}
+	board := EmptyBitboard()
 	ranks := []Square{A8, A7, A6, A5, A4, A3, A2, A1}
 	rank := 0
 	bitboardIndex := A8

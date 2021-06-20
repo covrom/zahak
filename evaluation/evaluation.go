@@ -310,17 +310,11 @@ func Evaluate(position *Position) int16 {
 
 	// Compute material balance
 	bbBlackPawn := board.GetBitboardOf(BlackPawn)
-	bbBlackKnight := board.GetBitboardOf(BlackKnight)
-	bbBlackBishop := board.GetBitboardOf(BlackBishop)
 	bbBlackRook := board.GetBitboardOf(BlackRook)
-	bbBlackQueen := board.GetBitboardOf(BlackQueen)
 	bbBlackKing := board.GetBitboardOf(BlackKing)
 
 	bbWhitePawn := board.GetBitboardOf(WhitePawn)
-	bbWhiteKnight := board.GetBitboardOf(WhiteKnight)
-	bbWhiteBishop := board.GetBitboardOf(WhiteBishop)
 	bbWhiteRook := board.GetBitboardOf(WhiteRook)
-	bbWhiteQueen := board.GetBitboardOf(WhiteQueen)
 	bbWhiteKing := board.GetBitboardOf(WhiteKing)
 
 	blackPawnsCount := int16(0)
@@ -345,135 +339,66 @@ func Evaluate(position *Position) int16 {
 	blacks := board.GetBlackPieces()
 	all := whites | blacks
 
-	blackPawnsCount = int16(bits.OnesCount64(bbBlackPawn))
-	whitePawnsCount = int16(bits.OnesCount64(bbWhitePawn))
-
 	var whiteKingIndex, blackKingIndex int
 
-	// PST for other black pieces
-	pieceIter := bbBlackKnight
-	for pieceIter != 0 {
-		blackKnightsCount++
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		blackCentipawnsEG += LateKnightPst[index]
-		blackCentipawnsMG += EarlyKnightPst[index]
-		pieceIter ^= mask
-	}
+	var aBlackRook Square = NoSquare
+	var aWhiteRook Square = NoSquare
 
-	pieceIter = bbBlackBishop
-	for pieceIter != 0 {
-		blackBishopsCount++
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		blackCentipawnsEG += LateBishopPst[index]
-		blackCentipawnsMG += EarlyBishopPst[index]
-		pieceIter ^= mask
-	}
-
-	pieceIter = bbBlackRook
-	for pieceIter != 0 {
-		blackRooksCount++
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		sq := Square(index)
-		if blackRooksCount == 1 {
-			if board.IsVerticalDoubleRook(sq, bbBlackRook, all) {
-				// double-rook vertical
-				blackCentipawnsEG += EndgameVeritcalDoubleRookAward
-				blackCentipawnsMG += MiddlegameVeritcalDoubleRookAward
-			} else if board.IsHorizontalDoubleRook(sq, bbBlackRook, all) {
-				// double-rook horizontal
-				blackCentipawnsMG += MiddlegameHorizontalDoubleRookAward
-				blackCentipawnsEG += EndgameHorizontalDoubleRookAward
-			}
+	pieceMap := board.PieceMap
+	for i := 0; i < len(pieceMap); i++ {
+		piece := pieceMap[i]
+		switch piece {
+		case BlackPawn:
+			blackPawnsCount++
+			blackCentipawnsEG += LatePawnPst[i]
+			blackCentipawnsMG += EarlyPawnPst[i]
+		case BlackKnight:
+			blackKnightsCount++
+			blackCentipawnsEG += LateKnightPst[i]
+			blackCentipawnsMG += EarlyKnightPst[i]
+		case BlackBishop:
+			blackBishopsCount++
+			blackCentipawnsEG += LateBishopPst[i]
+			blackCentipawnsMG += EarlyBishopPst[i]
+		case BlackRook:
+			blackRooksCount++
+			blackCentipawnsEG += LateRookPst[i]
+			blackCentipawnsMG += EarlyRookPst[i]
+			aWhiteRook = Square(i)
+		case BlackQueen:
+			blackQueensCount++
+			blackCentipawnsEG += LateQueenPst[i]
+			blackCentipawnsMG += EarlyQueenPst[i]
+		case BlackKing:
+			blackKingIndex = i
+			blackCentipawnsEG += LateKingPst[i]
+			blackCentipawnsMG += EarlyKingPst[i]
+		case WhitePawn:
+			whitePawnsCount++
+			whiteCentipawnsEG += LatePawnPst[flip[i]]
+			whiteCentipawnsMG += EarlyPawnPst[flip[i]]
+		case WhiteKnight:
+			whiteKnightsCount++
+			whiteCentipawnsEG += LateKnightPst[flip[i]]
+			whiteCentipawnsMG += EarlyKnightPst[flip[i]]
+		case WhiteBishop:
+			whiteBishopsCount++
+			whiteCentipawnsEG += LateBishopPst[flip[i]]
+			whiteCentipawnsMG += EarlyBishopPst[flip[i]]
+		case WhiteRook:
+			whiteRooksCount++
+			whiteCentipawnsEG += LateRookPst[flip[i]]
+			whiteCentipawnsMG += EarlyRookPst[flip[i]]
+			aBlackRook = Square(i)
+		case WhiteQueen:
+			whiteQueensCount++
+			whiteCentipawnsEG += LateQueenPst[flip[i]]
+			whiteCentipawnsMG += EarlyQueenPst[flip[i]]
+		case WhiteKing:
+			whiteKingIndex = i
+			whiteCentipawnsEG += LateKingPst[flip[i]]
+			whiteCentipawnsMG += EarlyKingPst[flip[i]]
 		}
-		blackCentipawnsEG += LateRookPst[index]
-		blackCentipawnsMG += EarlyRookPst[index]
-		pieceIter ^= mask
-	}
-
-	pieceIter = bbBlackQueen
-	for pieceIter != 0 {
-		blackQueensCount++
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		blackCentipawnsEG += LateQueenPst[index]
-		blackCentipawnsMG += EarlyQueenPst[index]
-		pieceIter ^= mask
-	}
-
-	pieceIter = bbBlackKing
-	for pieceIter != 0 {
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		blackCentipawnsEG += LateKingPst[index]
-		blackCentipawnsMG += EarlyKingPst[index]
-		blackKingIndex = index
-		pieceIter ^= mask
-	}
-
-	// PST for other white pieces
-	pieceIter = bbWhiteKnight
-	for pieceIter != 0 {
-		whiteKnightsCount++
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		whiteCentipawnsEG += LateKnightPst[flip[index]]
-		whiteCentipawnsMG += EarlyKnightPst[flip[index]]
-		pieceIter ^= mask
-	}
-
-	pieceIter = bbWhiteBishop
-	for pieceIter != 0 {
-		whiteBishopsCount++
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		whiteCentipawnsEG += LateBishopPst[flip[index]]
-		whiteCentipawnsMG += EarlyBishopPst[flip[index]]
-		pieceIter ^= mask
-	}
-
-	pieceIter = bbWhiteRook
-	for pieceIter != 0 {
-		whiteRooksCount++
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		sq := Square(index)
-		if whiteRooksCount == 1 {
-			if board.IsVerticalDoubleRook(sq, bbWhiteRook, all) {
-				// double-rook vertical
-				whiteCentipawnsMG += MiddlegameVeritcalDoubleRookAward
-				whiteCentipawnsEG += EndgameVeritcalDoubleRookAward
-			} else if board.IsHorizontalDoubleRook(sq, bbWhiteRook, all) {
-				// double-rook horizontal
-				whiteCentipawnsMG += MiddlegameHorizontalDoubleRookAward
-				whiteCentipawnsEG += EndgameHorizontalDoubleRookAward
-			}
-		}
-		whiteCentipawnsEG += LateRookPst[flip[index]]
-		whiteCentipawnsMG += EarlyRookPst[flip[index]]
-		pieceIter ^= mask
-	}
-
-	pieceIter = bbWhiteQueen
-	for pieceIter != 0 {
-		whiteQueensCount++
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		whiteCentipawnsEG += LateQueenPst[flip[index]]
-		whiteCentipawnsMG += EarlyQueenPst[flip[index]]
-		pieceIter ^= mask
-	}
-
-	pieceIter = bbWhiteKing
-	for pieceIter != 0 {
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		whiteCentipawnsEG += LateKingPst[flip[index]]
-		whiteCentipawnsMG += EarlyKingPst[flip[index]]
-		whiteKingIndex = index
-		pieceIter ^= mask
 	}
 
 	pawnFactorMG := int16(16-blackPawnsCount-whitePawnsCount) * MiddlegamePawnFactorCoeff
@@ -525,6 +450,31 @@ func Evaluate(position *Position) int16 {
 	whiteCentipawnsEG += rookEval.whiteEG
 	blackCentipawnsMG += rookEval.blackMG
 	blackCentipawnsEG += rookEval.blackEG
+
+	// Doubled rooks
+	if aBlackRook != NoSquare {
+		if board.IsVerticalDoubleRook(aBlackRook, bbBlackRook, all) {
+			// double-rook vertical
+			blackCentipawnsMG += MiddlegameVeritcalDoubleRookAward
+			blackCentipawnsEG += EndgameVeritcalDoubleRookAward
+		} else if board.IsHorizontalDoubleRook(aBlackRook, bbBlackRook, all) {
+			// double-rook horizontal
+			blackCentipawnsMG += MiddlegameHorizontalDoubleRookAward
+			blackCentipawnsEG += EndgameHorizontalDoubleRookAward
+		}
+	}
+
+	if aWhiteRook != NoSquare {
+		if board.IsVerticalDoubleRook(aWhiteRook, bbWhiteRook, all) {
+			// double-rook vertical
+			whiteCentipawnsMG += MiddlegameVeritcalDoubleRookAward
+			whiteCentipawnsEG += EndgameVeritcalDoubleRookAward
+		} else if board.IsHorizontalDoubleRook(aWhiteRook, bbWhiteRook, all) {
+			// double-rook horizontal
+			whiteCentipawnsMG += MiddlegameHorizontalDoubleRookAward
+			whiteCentipawnsEG += EndgameHorizontalDoubleRookAward
+		}
+	}
 
 	pawnMG, pawnEG := CachedPawnStructureEval(position)
 
@@ -700,26 +650,6 @@ func PawnStructureEval(p *Position) Eval {
 	count = p.CountDoublePawns(White)
 	whiteMG -= MiddlegameDoublePawnPenalty * count
 	whiteEG -= EndgameDoublePawnPenalty * count
-
-	// PST for black pawns
-	pieceIter := p.Board.GetBitboardOf(BlackPawn)
-	for pieceIter != 0 {
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		blackEG += LatePawnPst[index]
-		blackMG += EarlyPawnPst[index]
-		pieceIter ^= mask
-	}
-
-	// PST for white pawns
-	pieceIter = p.Board.GetBitboardOf(WhitePawn)
-	for pieceIter != 0 {
-		index := bits.TrailingZeros64(pieceIter)
-		mask := SquareMask[index]
-		whiteEG += LatePawnPst[flip[index]]
-		whiteMG += EarlyPawnPst[flip[index]]
-		pieceIter ^= mask
-	}
 
 	return Eval{blackMG: blackMG, whiteMG: whiteMG, blackEG: blackEG, whiteEG: whiteEG}
 }

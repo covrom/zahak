@@ -19,6 +19,7 @@ type Bitboard struct {
 	whiteKing   uint64
 	whitePieces uint64
 	blackPieces uint64
+	PieceMap    [64]Piece
 }
 
 func (b *Bitboard) GetWhitePieces() uint64 {
@@ -61,37 +62,10 @@ func (b *Bitboard) GetBitboardOf(piece Piece) uint64 {
 
 func (b *Bitboard) AllPieces() map[Square]Piece {
 	allPieces := make(map[Square]Piece, 32)
-	allBits := b.whitePieces | b.blackPieces
-	for allBits != 0 {
-		index := bitScanForward(allBits)
-		mask := SquareMask[index]
-		sq := Square(index)
-		if b.blackPawn&(mask) != 0 {
-			allPieces[sq] = BlackPawn
-		} else if b.whitePawn&(mask) != 0 {
-			allPieces[sq] = WhitePawn
-		} else if b.blackKnight&(mask) != 0 {
-			allPieces[sq] = BlackKnight
-		} else if b.whiteKnight&(mask) != 0 {
-			allPieces[sq] = WhiteKnight
-		} else if b.blackBishop&(mask) != 0 {
-			allPieces[sq] = BlackBishop
-		} else if b.whiteBishop&(mask) != 0 {
-			allPieces[sq] = WhiteBishop
-		} else if b.blackRook&(mask) != 0 {
-			allPieces[sq] = BlackRook
-		} else if b.whiteRook&(mask) != 0 {
-			allPieces[sq] = WhiteRook
-		} else if b.blackQueen&(mask) != 0 {
-			allPieces[sq] = BlackQueen
-		} else if b.whiteQueen&(mask) != 0 {
-			allPieces[sq] = WhiteQueen
-		} else if b.blackKing&(mask) != 0 {
-			allPieces[sq] = BlackKing
-		} else if b.whiteKing&(mask) != 0 {
-			allPieces[sq] = WhiteKing
+	for i, p := range b.PieceMap {
+		if p != NoPiece {
+			allPieces[Square(i)] = p
 		}
-		allBits ^= mask
 	}
 	return allPieces
 }
@@ -100,6 +74,7 @@ func (b *Bitboard) UpdateSquare(sq Square, newPiece Piece, oldPiece Piece) {
 	// Remove the piece from source square and add it to destination
 	b.Clear(sq, oldPiece)
 	mask := SquareMask[int(sq)]
+	b.PieceMap[sq] = newPiece
 	switch newPiece {
 	case BlackPawn:
 		b.blackPawn |= mask
@@ -144,38 +119,7 @@ func (b *Bitboard) PieceAt(sq Square) Piece {
 	if sq == NoSquare {
 		return NoPiece
 	}
-	mask := SquareMask[int(sq)]
-	if b.blackPieces&mask != 0 {
-		if b.blackPawn&mask != 0 {
-			return BlackPawn
-		} else if b.blackKnight&mask != 0 {
-			return BlackKnight
-		} else if b.blackBishop&mask != 0 {
-			return BlackBishop
-		} else if b.blackRook&mask != 0 {
-			return BlackRook
-		} else if b.blackQueen&mask != 0 {
-			return BlackQueen
-		} else if b.blackKing&mask != 0 {
-			return BlackKing
-		}
-	}
-
-	// It is not black? then it is white
-	if b.whitePawn&mask != 0 {
-		return WhitePawn
-	} else if b.whiteKnight&mask != 0 {
-		return WhiteKnight
-	} else if b.whiteBishop&mask != 0 {
-		return WhiteBishop
-	} else if b.whiteRook&mask != 0 {
-		return WhiteRook
-	} else if b.whiteQueen&mask != 0 {
-		return WhiteQueen
-	} else if b.whiteKing&mask != 0 {
-		return WhiteKing
-	}
-	return NoPiece
+	return b.PieceMap[sq]
 }
 
 func (b *Bitboard) Clear(square Square, piece Piece) {
@@ -183,6 +127,9 @@ func (b *Bitboard) Clear(square Square, piece Piece) {
 		return
 	}
 	mask := SquareMask[int(square)]
+	if b.PieceMap[square] == piece {
+		b.PieceMap[square] = NoPiece
+	}
 	switch piece {
 	case BlackPawn:
 		b.blackPawn &^= mask
@@ -232,6 +179,7 @@ func (b *Bitboard) Move(src Square, dest Square, sourcePiece Piece, destinationP
 	b.Clear(dest, destinationPiece)
 	b.Clear(src, sourcePiece)
 	maskDest := SquareMask[int(dest)]
+	b.PieceMap[dest] = sourcePiece
 
 	// Remove the piece from source square and add it to destination
 	switch sourcePiece {
@@ -286,8 +234,17 @@ func (b *Bitboard) Move(src Square, dest Square, sourcePiece Piece, destinationP
 	}
 }
 
-func StartingBoard() Bitboard {
-	bitboard := Bitboard{}
+func EmptyBitboard() *Bitboard {
+	var pieces [64]Piece
+	for i := 0; i < 64; i++ {
+		pieces[i] = NoPiece
+	}
+	bitboard := &Bitboard{PieceMap: pieces}
+	return bitboard
+}
+
+func StartingBoard() *Bitboard {
+	bitboard := EmptyBitboard()
 	bitboard.UpdateSquare(A2, WhitePawn, NoPiece)
 	bitboard.UpdateSquare(B2, WhitePawn, NoPiece)
 	bitboard.UpdateSquare(C2, WhitePawn, NoPiece)
@@ -357,6 +314,10 @@ func (b *Bitboard) Draw() string {
 }
 
 func (b *Bitboard) copy() *Bitboard {
+	var other [64]Piece
+	for i, p := range b.PieceMap {
+		other[i] = p
+	}
 	return &Bitboard{
 		b.blackPawn,
 		b.blackKnight,
@@ -372,5 +333,6 @@ func (b *Bitboard) copy() *Bitboard {
 		b.whiteKing,
 		b.whitePieces,
 		b.blackPieces,
+		other,
 	}
 }
