@@ -167,6 +167,10 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 			e.CacheHit()
 			return nEval
 		}
+		if nType == Exact {
+			e.CacheHit()
+			return nEval
+		}
 	}
 
 	// Internal iterative reduction based on Rebel's idea
