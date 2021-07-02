@@ -1,18 +1,20 @@
 package engine
 
 type CachedEval struct {
-	Hash     uint64   // 8
-	HashMove Move     // 4
-	Eval     int16    // 2
-	Age      uint16   // 2
-	Depth    int8     // 1
-	Type     NodeType // 1
+	Gate       uint32   // 4
+	HashMove   Move     // 4
+	Eval       int16    // 2
+	StaticEval int16    // 2
+	Age        uint16   // 2
+	Depth      int8     // 1
+	Type       NodeType // 1
 }
 
-func (c *CachedEval) Update(hash uint64, hashmove Move, eval int16, depth int8, nodeType NodeType, age uint16) {
-	c.Hash = hash
+func (c *CachedEval) Update(gate uint32, hashmove Move, eval int16, staticEval int16, depth int8, nodeType NodeType, age uint16) {
+	c.Gate = gate
 	c.HashMove = hashmove
 	c.Eval = eval
+	c.StaticEval = staticEval
 	c.Depth = depth
 	c.Type = nodeType
 	c.Age = age
@@ -28,8 +30,8 @@ const (
 
 var oldAge = uint16(5)
 
-var EmptyEval = CachedEval{0, EmptyMove, 0, 0, 0, 0}
-var CACHE_ENTRY_SIZE = uint32(8 + 4 + 2 + 2 + 1 + 1)
+var EmptyEval = CachedEval{0, EmptyMove, 0, 0, 0, 0, 0}
+var CACHE_ENTRY_SIZE = uint32(4 + 4 + 2 + 2 + 2 + 1 + 1)
 
 type Cache struct {
 	items    []CachedEval
@@ -44,20 +46,22 @@ func (c *Cache) Consumed() int {
 	return int((float64(c.consumed) / float64(len(c.items))) * 1000)
 }
 
-func (c *Cache) hash(key uint64) uint32 {
-	return uint32(key>>32) % uint32(len(c.items))
+func (c *Cache) extractHashAndGate(hash uint64) (uint32, uint32) {
+	gate := uint32(0x00000000FFFFFFFFF & hash)
+	key := uint32(hash>>32) % uint32(len(c.items))
+	return key, gate
 }
 
-func (c *Cache) Set(hash uint64, hashmove Move, eval int16, depth int8, nodeType NodeType, age uint16) {
-	key := c.hash(hash)
+func (c *Cache) Set(hash uint64, hashmove Move, eval int16, staticEval int16, depth int8, nodeType NodeType, age uint16) {
+	key, gate := c.extractHashAndGate(hash)
 	oldValue := c.items[key]
 	if oldValue != EmptyEval {
-		if hash == oldValue.Hash {
-			c.items[key].Update(hash, hashmove, eval, depth, nodeType, age)
+		if gate == oldValue.Gate {
+			c.items[key].Update(gate, hashmove, eval, staticEval, depth, nodeType, age)
 			return
 		}
 		if age-oldValue.Age >= oldAge {
-			c.items[key].Update(hash, hashmove, eval, depth, nodeType, age)
+			c.items[key].Update(gate, hashmove, eval, staticEval, depth, nodeType, age)
 			return
 		}
 		if oldValue.Depth > depth {
@@ -66,13 +70,13 @@ func (c *Cache) Set(hash uint64, hashmove Move, eval int16, depth int8, nodeType
 		if oldValue.Type == Exact || nodeType != Exact {
 			return
 		} else if nodeType == Exact {
-			c.items[key].Update(hash, hashmove, eval, depth, nodeType, age)
+			c.items[key].Update(gate, hashmove, staticEval, eval, depth, nodeType, age)
 			return
 		}
-		c.items[key].Update(hash, hashmove, eval, depth, nodeType, age)
+		c.items[key].Update(gate, hashmove, staticEval, eval, depth, nodeType, age)
 	} else {
 		c.consumed += 1
-		c.items[key].Update(hash, hashmove, eval, depth, nodeType, age)
+		c.items[key].Update(gate, hashmove, staticEval, eval, depth, nodeType, age)
 	}
 }
 
@@ -80,13 +84,13 @@ func (c *Cache) Size() uint32 {
 	return c.size
 }
 
-func (c *Cache) Get(hash uint64) (Move, int16, int8, NodeType, bool) {
-	key := c.hash(hash)
+func (c *Cache) Get(hash uint64) (Move, int16, int16, int8, NodeType, bool) {
+	key, gate := c.extractHashAndGate(hash)
 	item := c.items[key]
-	if item.Hash == hash {
-		return item.HashMove, item.Eval, item.Depth, item.Type, true
+	if item.Gate == gate {
+		return item.HashMove, item.Eval, item.StaticEval, item.Depth, item.Type, true
 	}
-	return EmptyMove, 0, 0, 0, false
+	return EmptyMove, 0, 0, 0, 0, false
 }
 
 func NewCache(megabytes uint32) *Cache {

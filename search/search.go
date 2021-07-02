@@ -157,8 +157,8 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 	}
 
 	hash := position.Hash()
-	nHashMove, nEval, nDepth, nType, found := e.TranspositionTable.Get(hash)
-	if !isPvNode && found && nDepth >= depthLeft {
+	nHashMove, nEval, nStaticEval, nDepth, nType, ttHit := e.TranspositionTable.Get(hash)
+	if !isPvNode && ttHit && nDepth >= depthLeft {
 		if nEval >= beta && nType == LowerBound {
 			e.CacheHit()
 			return nEval
@@ -170,7 +170,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 	}
 
 	// Internal iterative reduction based on Rebel's idea
-	if !found && depthLeft >= 3 {
+	if !ttHit && depthLeft >= 3 {
 		e.info.internalIterativeReduction += 1
 		depthLeft -= 1
 	}
@@ -187,7 +187,12 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 		return -MAX_INT
 	}
 
-	eval := Evaluate(position)
+	var eval int16
+	if ttHit {
+		eval = nStaticEval
+	} else {
+		eval = Evaluate(position)
+	}
 	e.staticEvals[searchHeight] = eval
 	improving := currentMove == EmptyMove ||
 		(searchHeight > 2 && e.staticEvals[searchHeight] > e.staticEvals[searchHeight-2])
@@ -305,7 +310,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 			if bestscore > alpha {
 				if bestscore >= beta {
 					if !e.AbruptStop {
-						e.TranspositionTable.Set(hash, hashmove, bestscore, depthLeft, LowerBound, e.Ply)
+						e.TranspositionTable.Set(hash, hashmove, bestscore, eval, depthLeft, LowerBound, e.Ply)
 						// e.AddKillerMove(hashmove, searchHeight)
 						e.AddHistory(hashmove, hashmove.MovingPiece(), hashmove.Destination(), depthLeft)
 					}
@@ -412,7 +417,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 			if score > bestscore {
 				if score >= beta {
 					if !e.AbruptStop {
-						e.TranspositionTable.Set(hash, move, score, depthLeft, LowerBound, e.Ply)
+						e.TranspositionTable.Set(hash, move, score, eval, depthLeft, LowerBound, e.Ply)
 						// e.AddKillerMove(move, searchHeight)
 						e.AddHistory(move, move.MovingPiece(), move.Destination(), depthLeft)
 					}
@@ -429,9 +434,9 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 	}
 	if !e.AbruptStop {
 		if alpha > oldAlpha {
-			e.TranspositionTable.Set(hash, hashmove, bestscore, depthLeft, Exact, e.Ply)
+			e.TranspositionTable.Set(hash, hashmove, bestscore, eval, depthLeft, Exact, e.Ply)
 		} else {
-			e.TranspositionTable.Set(hash, hashmove, bestscore, depthLeft, UpperBound, e.Ply)
+			e.TranspositionTable.Set(hash, hashmove, bestscore, eval, depthLeft, UpperBound, e.Ply)
 		}
 	}
 	return bestscore
