@@ -333,8 +333,10 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 		pruningThreashold /= 2
 	}
 
+	historyPruningThreashold := -1 * int32(depthLeft) * 5000
+
 	seeScores := movePicker.captureMoveList.Scores
-	// quietScores := movePicker.quietMoveList.Scores
+	quietScores := movePicker.quietMoveList.Scores
 	var move Move
 	for true {
 		move = movePicker.Next()
@@ -383,11 +385,21 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 				// Late Move Reduction
 				if promoType == NoType && !isCaptureMove && !isCheckMove && depthLeft > 3 && legalMoves > 4 {
 					e.info.lmrCounter += 1
+					LMR = 1
+
 					if legalMoves >= 8 && notPromoting {
-						LMR = 2
-					} else {
-						LMR = 1
+						LMR += 1
 					}
+
+					if quietMoves > 4 && quietScores[quietMoves] < historyPruningThreashold {
+						e.info.historyPruningCounter += 1
+						LMR += 1
+						if depthLeft-LMR <= 1 {
+							position.UnMakeMove(move, oldTag, oldEnPassant, hc)
+							continue // HMP
+						}
+					}
+
 				}
 			}
 
