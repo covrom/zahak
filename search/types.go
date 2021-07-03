@@ -226,7 +226,7 @@ func (e *Engine) MoveHistoryScore(movingPiece Piece, destination Square, ply int
 	if ply < 0 || e.searchHistory[movingPiece-1][destination] == 0 {
 		return 0
 	}
-	return 60_000 + e.searchHistory[movingPiece-1][destination]
+	return e.searchHistory[movingPiece-1][destination]
 }
 
 func (e *Engine) AddMoveHistory(move Move, movingPiece Piece, destination Square, ply int8) {

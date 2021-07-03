@@ -189,7 +189,7 @@ func (mp *MovePicker) scoreQuietMoves() int {
 		piece := move.MovingPiece()
 		killer := engine.KillerMoveScore(move, moveOrder)
 		var history int32
-		var isCastling bool
+		// var isCastling bool
 
 		if killer != 0 {
 			scores[i] = killer
@@ -197,10 +197,10 @@ func (mp *MovePicker) scoreQuietMoves() int {
 		}
 
 		history = engine.MoveHistoryScore(piece, dest, moveOrder)
-		if history != 0 {
-			scores[i] = history
-			goto end
-		}
+		// if history != 0 {
+		scores[i] = history
+		goto end
+		// }
 
 		// prefer checks
 		// if move.IsCheck() {
@@ -209,19 +209,19 @@ func (mp *MovePicker) scoreQuietMoves() int {
 		// }
 
 		// King safety (castling)
-		isCastling = move.IsCastle()
-		if isCastling {
-			scores[i] = 3_000
-			goto end
-		}
-
-		// Prefer smaller pieces
-		if piece.Type() == King {
-			scores[i] = 0
-			goto end
-		}
-
-		scores[i] = 1100 - int32(piece.Weight())
+		// isCastling = move.IsCastle()
+		// if isCastling {
+		// 	scores[i] = 3_000
+		// 	goto end
+		// }
+		//
+		// // Prefer smaller pieces
+		// if piece.Type() == King {
+		// 	scores[i] = 0
+		// 	goto end
+		// }
+		//
+		// scores[i] = 1100 - int32(piece.Weight())
 	end:
 		if highestNonHashScore < scores[i] {
 			highestNonHashIndex = i
