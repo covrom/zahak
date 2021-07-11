@@ -503,6 +503,31 @@ func Evaluate(position *Position) int16 {
 	whiteCentipawnsEG += whiteRooksCount * (WhiteRook.Weight() + pawnFactorEG)
 	whiteCentipawnsEG += whiteQueensCount * WhiteQueen.Weight()
 
+	phase := TotalPhase -
+		whitePawnsCount*PawnPhase -
+		blackPawnsCount*PawnPhase -
+		whiteKnightsCount*KnightPhase -
+		blackKnightsCount*KnightPhase -
+		whiteBishopsCount*BishopPhase -
+		blackBishopsCount*BishopPhase -
+		whiteRooksCount*RookPhase -
+		blackRooksCount*RookPhase -
+		whiteQueensCount*QueenPhase -
+		blackQueensCount*QueenPhase
+
+	phase = (phase*256 + HalfPhase) / TotalPhase
+
+	// Pawn structure Eval
+	pawnMG, pawnEG := CachedPawnStructureEval(position)
+
+	// Lazy Evaluation
+	{
+		lazyEval := taper(turn, phase, whiteCentipawnsMG, whiteCentipawnsEG, blackCentipawnsMG, blackCentipawnsEG, pawnMG, pawnEG)
+		if abs16(lazyEval) >= WhiteQueen.Weight() {
+			return lazyEval
+		}
+	}
+
 	// Bishop Pair
 	if whiteBishopsCount >= 2 {
 		whiteCentipawnsMG += MiddlegameBishopPairAward
@@ -526,8 +551,6 @@ func Evaluate(position *Position) int16 {
 	blackCentipawnsMG += rookEval.blackMG
 	blackCentipawnsEG += rookEval.blackEG
 
-	pawnMG, pawnEG := CachedPawnStructureEval(position)
-
 	kingSafetyEval := KingSafety(bbBlackKing, bbWhiteKing, bbBlackPawn, bbWhitePawn,
 		position.HasTag(BlackCanCastleQueenSide) || position.HasTag(BlackCanCastleKingSide),
 		position.HasTag(WhiteCanCastleQueenSide) || position.HasTag(WhiteCanCastleKingSide),
@@ -543,20 +566,13 @@ func Evaluate(position *Position) int16 {
 	blackCentipawnsMG += knightOutpostEval.blackMG
 	blackCentipawnsEG += knightOutpostEval.blackEG
 
-	phase := TotalPhase -
-		whitePawnsCount*PawnPhase -
-		blackPawnsCount*PawnPhase -
-		whiteKnightsCount*KnightPhase -
-		blackKnightsCount*KnightPhase -
-		whiteBishopsCount*BishopPhase -
-		blackBishopsCount*BishopPhase -
-		whiteRooksCount*RookPhase -
-		blackRooksCount*RookPhase -
-		whiteQueensCount*QueenPhase -
-		blackQueensCount*QueenPhase
+	return taper(turn, phase, whiteCentipawnsMG, whiteCentipawnsEG, blackCentipawnsMG, blackCentipawnsEG, pawnMG, pawnEG)
+}
 
-	phase = (phase*256 + HalfPhase) / TotalPhase
-
+func taper(turn Color, phase int16,
+	whiteCentipawnsMG int16, whiteCentipawnsEG int16,
+	blackCentipawnsMG int16, blackCentipawnsEG int16,
+	pawnMG int16, pawnEG int16) int16 {
 	var evalEG, evalMG int16
 
 	if turn == White {
@@ -575,6 +591,7 @@ func Evaluate(position *Position) int16 {
 	phs := int32(phase)
 	taperedEval := int16(((mg * (256 - phs)) + eg*phs) / 256)
 	return toEval(taperedEval + Tempo)
+
 }
 
 func KnightOutpostEval(p *Position) Eval {
@@ -973,4 +990,11 @@ func min16(x int16, y int16) int16 {
 		return x
 	}
 	return y
+}
+
+func abs16(x int16) int16 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
