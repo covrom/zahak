@@ -42,6 +42,19 @@ const WhiteFShield = uint64(1<<F2 | 1<<F3)
 const WhiteGShield = uint64(1<<G2 | 1<<G3)
 const WhiteHShield = uint64(1<<H2 | 1<<H3)
 
+const BlackAStorm = uint64(1<<A7 | 1<<A6 | 1<<A5)
+const BlackBStorm = uint64(1<<B7 | 1<<B6 | 1<<B5)
+const BlackCStorm = uint64(1<<C7 | 1<<C6 | 1<<C5)
+const BlackFStorm = uint64(1<<F7 | 1<<F6 | 1<<F5)
+const BlackGStorm = uint64(1<<G7 | 1<<G6 | 1<<G5)
+const BlackHStorm = uint64(1<<H7 | 1<<H6 | 1<<H5)
+const WhiteAStorm = uint64(1<<A2 | 1<<A3 | 1<<A4)
+const WhiteBStorm = uint64(1<<B2 | 1<<B3 | 1<<B4)
+const WhiteCStorm = uint64(1<<C2 | 1<<C3 | 1<<C4)
+const WhiteFStorm = uint64(1<<F2 | 1<<F3 | 1<<F4)
+const WhiteGStorm = uint64(1<<G2 | 1<<G3 | 1<<G4)
+const WhiteHStorm = uint64(1<<H2 | 1<<H3 | 1<<H4)
+
 // Piece Square Tables
 // Middle-game
 var EarlyPawnPst = [64]int16{
@@ -233,6 +246,8 @@ var MiddlegameKnightOutpostAward int16 = 17
 var EndgameKnightOutpostAward int16 = 23
 var MiddlegameBishopPairAward int16 = 28
 var EndgameBishopPairAward int16 = 44
+var MiddlegameKingZonePawnStormAward int16 = 15
+var EndgameKingZonePawnStormAward int16 = 0
 
 var flip = [64]int16{
 	56, 57, 58, 59, 60, 61, 62, 63,
@@ -724,9 +739,11 @@ func PawnStructureEval(p *Position) Eval {
 	return Eval{blackMG: blackMG, whiteMG: whiteMG, blackEG: blackEG, whiteEG: whiteEG}
 }
 
-func kingSafetyPenalty(color Color, side PieceType, ownPawn uint64, allPawn uint64) (int16, int16) {
+func kingSafetyPenalty(color Color, side PieceType, ownPawn uint64, otherPawn uint64, allPawn uint64) (int16, int16) {
 	var mg, eg int16
-	var a_shield, b_shield, c_shield, f_shield, g_shield, h_shield uint64
+	var a_shield, b_shield, c_shield, f_shield, g_shield, h_shield,
+		a_storm, b_storm, c_storm, f_storm, g_storm, h_storm uint64
+
 	if color == White {
 		a_shield = WhiteAShield
 		b_shield = WhiteBShield
@@ -734,6 +751,14 @@ func kingSafetyPenalty(color Color, side PieceType, ownPawn uint64, allPawn uint
 		f_shield = WhiteFShield
 		g_shield = WhiteGShield
 		h_shield = WhiteHShield
+
+		a_storm = WhiteAStorm
+		b_storm = WhiteBStorm
+		c_storm = WhiteCStorm
+		f_storm = WhiteFStorm
+		g_storm = WhiteGStorm
+		h_storm = WhiteHStorm
+
 	} else {
 		a_shield = BlackAShield
 		b_shield = BlackBShield
@@ -741,6 +766,13 @@ func kingSafetyPenalty(color Color, side PieceType, ownPawn uint64, allPawn uint
 		f_shield = BlackFShield
 		g_shield = BlackGShield
 		h_shield = BlackHShield
+
+		a_storm = BlackAStorm
+		b_storm = BlackBStorm
+		c_storm = BlackCStorm
+		f_storm = BlackFStorm
+		g_storm = BlackGStorm
+		h_storm = BlackHStorm
 	}
 	if side == King {
 		if H_FileFill&allPawn == 0 { // no pawns, super bad
@@ -775,6 +807,21 @@ func kingSafetyPenalty(color Color, side PieceType, ownPawn uint64, allPawn uint
 			mg += MiddlegamePawnShieldPenalty
 			eg += EndgamePawnShieldPenalty
 		}
+
+		if otherPawn&h_storm != 0 {
+			mg -= MiddlegameKingZonePawnStormAward
+			eg -= EndgameKingZonePawnStormAward
+		}
+
+		if otherPawn&g_storm != 0 {
+			mg -= MiddlegameKingZonePawnStormAward
+			eg -= EndgameKingZonePawnStormAward
+		}
+
+		if otherPawn&f_storm != 0 {
+			mg -= MiddlegameKingZonePawnStormAward
+			eg -= EndgameKingZonePawnStormAward
+		}
 	} else {
 		if C_FileFill&allPawn == 0 { // no pawns, super bad
 			mg += MiddlegameKingZoneOpenFilePenalty
@@ -808,6 +855,21 @@ func kingSafetyPenalty(color Color, side PieceType, ownPawn uint64, allPawn uint
 			mg += MiddlegamePawnShieldPenalty
 			eg += EndgamePawnShieldPenalty
 		}
+
+		if otherPawn&c_storm != 0 {
+			mg -= MiddlegameKingZonePawnStormAward
+			eg -= EndgameKingZonePawnStormAward
+		}
+
+		if otherPawn&b_storm != 0 {
+			mg -= MiddlegameKingZonePawnStormAward
+			eg -= EndgameKingZonePawnStormAward
+		}
+
+		if otherPawn&a_storm != 0 {
+			mg -= MiddlegameKingZonePawnStormAward
+			eg -= EndgameKingZonePawnStormAward
+		}
 	}
 
 	return mg, eg
@@ -821,13 +883,13 @@ func KingSafety(blackKing uint64, whiteKing uint64, blackPawn uint64,
 	if blackKing&BlackKingSideMask != 0 {
 		blackCastleFlag = true
 		// Missing pawn shield
-		mg, eg := kingSafetyPenalty(Black, King, blackPawn, allPawn)
+		mg, eg := kingSafetyPenalty(Black, King, blackPawn, whitePawn, allPawn)
 		blackCentipawnsMG -= mg
 		blackCentipawnsEG -= eg
 	} else if blackKing&BlackQueenSideMask != 0 {
 		blackCastleFlag = true
 		// Missing pawn shield
-		mg, eg := kingSafetyPenalty(Black, Queen, blackPawn, allPawn)
+		mg, eg := kingSafetyPenalty(Black, Queen, blackPawn, whitePawn, allPawn)
 		blackCentipawnsMG -= mg
 		blackCentipawnsEG -= eg
 	}
@@ -835,13 +897,13 @@ func KingSafety(blackKing uint64, whiteKing uint64, blackPawn uint64,
 	if whiteKing&WhiteKingSideMask != 0 {
 		whiteCastleFlag = true
 		// Missing pawn shield
-		mg, eg := kingSafetyPenalty(White, King, whitePawn, allPawn)
+		mg, eg := kingSafetyPenalty(White, King, whitePawn, blackPawn, allPawn)
 		whiteCentipawnsMG -= mg
 		whiteCentipawnsEG -= eg
 	} else if whiteKing&WhiteQueenSideMask != 0 {
 		whiteCastleFlag = true
 		// Missing pawn shield
-		mg, eg := kingSafetyPenalty(White, Queen, whitePawn, allPawn)
+		mg, eg := kingSafetyPenalty(White, Queen, whitePawn, blackPawn, allPawn)
 		whiteCentipawnsMG -= mg
 		whiteCentipawnsEG -= eg
 	}
