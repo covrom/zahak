@@ -42,6 +42,14 @@ const WhiteFShield = uint64(1<<F2 | 1<<F3)
 const WhiteGShield = uint64(1<<G2 | 1<<G3)
 const WhiteHShield = uint64(1<<H2 | 1<<H3)
 
+var p = WhitePawn.Weight()
+var n = WhiteKnight.Weight()
+var b = WhiteBishop.Weight()
+var r = WhiteRook.Weight()
+var q = WhiteQueen.Weight()
+
+var lazyEvalThreshold = 2 * q
+
 // Piece Square Tables
 // Middle-game
 var EarlyPawnPst = [64]int16{
@@ -349,6 +357,8 @@ func Evaluate(position *Position) int16 {
 	whitePawnsCount = int16(bits.OnesCount64(bbWhitePawn))
 
 	var whiteKingIndex, blackKingIndex int
+	var aBlackRook Square = NoSquare
+	var aWhiteRook Square = NoSquare
 
 	// PST for other black pieces
 	pieceIter := bbBlackKnight
@@ -376,18 +386,7 @@ func Evaluate(position *Position) int16 {
 		blackRooksCount++
 		index := bits.TrailingZeros64(pieceIter)
 		mask := SquareMask[index]
-		sq := Square(index)
-		if blackRooksCount == 1 {
-			if board.IsVerticalDoubleRook(sq, bbBlackRook, all) {
-				// double-rook vertical
-				blackCentipawnsEG += EndgameVeritcalDoubleRookAward
-				blackCentipawnsMG += MiddlegameVeritcalDoubleRookAward
-			} else if board.IsHorizontalDoubleRook(sq, bbBlackRook, all) {
-				// double-rook horizontal
-				blackCentipawnsMG += MiddlegameHorizontalDoubleRookAward
-				blackCentipawnsEG += EndgameHorizontalDoubleRookAward
-			}
-		}
+		aBlackRook = Square(index)
 		blackCentipawnsEG += LateRookPst[index]
 		blackCentipawnsMG += EarlyRookPst[index]
 		pieceIter ^= mask
@@ -439,18 +438,7 @@ func Evaluate(position *Position) int16 {
 		whiteRooksCount++
 		index := bits.TrailingZeros64(pieceIter)
 		mask := SquareMask[index]
-		sq := Square(index)
-		if whiteRooksCount == 1 {
-			if board.IsVerticalDoubleRook(sq, bbWhiteRook, all) {
-				// double-rook vertical
-				whiteCentipawnsMG += MiddlegameVeritcalDoubleRookAward
-				whiteCentipawnsEG += EndgameVeritcalDoubleRookAward
-			} else if board.IsHorizontalDoubleRook(sq, bbWhiteRook, all) {
-				// double-rook horizontal
-				whiteCentipawnsMG += MiddlegameHorizontalDoubleRookAward
-				whiteCentipawnsEG += EndgameHorizontalDoubleRookAward
-			}
-		}
+		aWhiteRook = Square(index)
 		whiteCentipawnsEG += LateRookPst[flip[index]]
 		whiteCentipawnsMG += EarlyRookPst[flip[index]]
 		pieceIter ^= mask
@@ -479,29 +467,29 @@ func Evaluate(position *Position) int16 {
 	pawnFactorMG := int16(16-blackPawnsCount-whitePawnsCount) * MiddlegamePawnFactorCoeff
 	pawnFactorEG := int16(16-blackPawnsCount-whitePawnsCount) * EndgamePawnFactorCoeff
 
-	blackCentipawnsMG += blackPawnsCount * BlackPawn.Weight()
-	blackCentipawnsMG += blackKnightsCount * (BlackKnight.Weight() - pawnFactorMG)
-	blackCentipawnsMG += blackBishopsCount * (BlackBishop.Weight())
-	blackCentipawnsMG += blackRooksCount * (BlackRook.Weight() + pawnFactorMG)
-	blackCentipawnsMG += blackQueensCount * BlackQueen.Weight()
+	blackCentipawnsMG += blackPawnsCount * p
+	blackCentipawnsMG += blackKnightsCount * (n - pawnFactorMG)
+	blackCentipawnsMG += blackBishopsCount * b
+	blackCentipawnsMG += blackRooksCount * (r + pawnFactorMG)
+	blackCentipawnsMG += blackQueensCount * q
 
-	blackCentipawnsEG += blackPawnsCount * BlackPawn.Weight()
-	blackCentipawnsEG += blackKnightsCount * (BlackKnight.Weight() - pawnFactorEG)
-	blackCentipawnsEG += blackBishopsCount * (BlackBishop.Weight())
-	blackCentipawnsEG += blackRooksCount * (BlackRook.Weight() + pawnFactorEG)
-	blackCentipawnsEG += blackQueensCount * BlackQueen.Weight()
+	blackCentipawnsEG += blackPawnsCount * p
+	blackCentipawnsEG += blackKnightsCount * (n - pawnFactorEG)
+	blackCentipawnsEG += blackBishopsCount * b
+	blackCentipawnsEG += blackRooksCount * (r + pawnFactorEG)
+	blackCentipawnsEG += blackQueensCount * q
 
-	whiteCentipawnsMG += whitePawnsCount * WhitePawn.Weight()
-	whiteCentipawnsMG += whiteKnightsCount * (WhiteKnight.Weight() - pawnFactorMG)
-	whiteCentipawnsMG += whiteBishopsCount * (WhiteBishop.Weight())
-	whiteCentipawnsMG += whiteRooksCount * (WhiteRook.Weight() + pawnFactorMG)
-	whiteCentipawnsMG += whiteQueensCount * WhiteQueen.Weight()
+	whiteCentipawnsMG += whitePawnsCount * p
+	whiteCentipawnsMG += whiteKnightsCount * (n - pawnFactorMG)
+	whiteCentipawnsMG += whiteBishopsCount * b
+	whiteCentipawnsMG += whiteRooksCount * (r + pawnFactorMG)
+	whiteCentipawnsMG += whiteQueensCount * q
 
-	whiteCentipawnsEG += whitePawnsCount * WhitePawn.Weight()
-	whiteCentipawnsEG += whiteKnightsCount * (WhiteKnight.Weight() - pawnFactorEG)
-	whiteCentipawnsEG += whiteBishopsCount * (WhiteBishop.Weight())
-	whiteCentipawnsEG += whiteRooksCount * (WhiteRook.Weight() + pawnFactorEG)
-	whiteCentipawnsEG += whiteQueensCount * WhiteQueen.Weight()
+	whiteCentipawnsEG += whitePawnsCount * p
+	whiteCentipawnsEG += whiteKnightsCount * (n - pawnFactorEG)
+	whiteCentipawnsEG += whiteBishopsCount * b
+	whiteCentipawnsEG += whiteRooksCount * (r + pawnFactorEG)
+	whiteCentipawnsEG += whiteQueensCount * q
 
 	phase := TotalPhase -
 		whitePawnsCount*PawnPhase -
@@ -523,7 +511,7 @@ func Evaluate(position *Position) int16 {
 	// Lazy Evaluation
 	{
 		lazyEval := taper(turn, phase, whiteCentipawnsMG, whiteCentipawnsEG, blackCentipawnsMG, blackCentipawnsEG, pawnMG, pawnEG)
-		if abs16(lazyEval) >= WhiteQueen.Weight() {
+		if abs16(lazyEval) >= lazyEvalThreshold {
 			return lazyEval
 		}
 	}
@@ -550,6 +538,29 @@ func Evaluate(position *Position) int16 {
 	whiteCentipawnsEG += rookEval.whiteEG
 	blackCentipawnsMG += rookEval.blackMG
 	blackCentipawnsEG += rookEval.blackEG
+
+	if aBlackRook != NoSquare {
+		if board.IsVerticalDoubleRook(aBlackRook, bbBlackRook, all) {
+			// double-rook vertical
+			blackCentipawnsEG += EndgameVeritcalDoubleRookAward
+			blackCentipawnsMG += MiddlegameVeritcalDoubleRookAward
+		} else if board.IsHorizontalDoubleRook(aBlackRook, bbBlackRook, all) {
+			// double-rook horizontal
+			blackCentipawnsMG += MiddlegameHorizontalDoubleRookAward
+			blackCentipawnsEG += EndgameHorizontalDoubleRookAward
+		}
+	}
+	if aWhiteRook != NoSquare {
+		if board.IsVerticalDoubleRook(aWhiteRook, bbWhiteRook, all) {
+			// double-rook vertical
+			whiteCentipawnsMG += MiddlegameVeritcalDoubleRookAward
+			whiteCentipawnsEG += EndgameVeritcalDoubleRookAward
+		} else if board.IsHorizontalDoubleRook(aWhiteRook, bbWhiteRook, all) {
+			// double-rook horizontal
+			whiteCentipawnsMG += MiddlegameHorizontalDoubleRookAward
+			whiteCentipawnsEG += EndgameHorizontalDoubleRookAward
+		}
+	}
 
 	kingSafetyEval := KingSafety(bbBlackKing, bbWhiteKing, bbBlackPawn, bbWhitePawn,
 		position.HasTag(BlackCanCastleQueenSide) || position.HasTag(BlackCanCastleKingSide),
@@ -591,7 +602,6 @@ func taper(turn Color, phase int16,
 	phs := int32(phase)
 	taperedEval := int16(((mg * (256 - phs)) + eg*phs) / 256)
 	return toEval(taperedEval + Tempo)
-
 }
 
 func KnightOutpostEval(p *Position) Eval {
