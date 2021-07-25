@@ -533,6 +533,17 @@ func TestLegalMovesInOpenning(t *testing.T) {
 	}
 }
 
+func TestIsPseudoLegalMove(t *testing.T) {
+	for _, pos := range positions {
+		turn := pos.Turn()
+		for _, mov := range pos.PseudoLegalMoves() {
+			if !pos.IsPseudoLegal(mov, turn) {
+				t.Errorf("Move %s in position %s is wrongly marked as pseudo illegal", mov.ToString(), pos.Fen())
+			}
+		}
+	}
+}
+
 func equalMoves(moves1 []Move, moves2 []Move) bool {
 	if len(moves1) != len(moves2) {
 		return false

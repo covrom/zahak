@@ -13,6 +13,52 @@ func (p *Position) PseudoLegalMoves() []Move {
 	return ml.Moves[:ml.Size]
 }
 
+func (p *Position) IsPseudoLegal(move Move, color Color) bool {
+	if move == EmptyMove {
+		return false
+	}
+	board := p.Board
+	if move.MovingPiece() != board.PieceAt(move.Source()) {
+		return false
+	}
+
+	if move.IsCapture() {
+		if move.IsEnPassant() {
+			cps := findEnPassantCaptureSquare(move)
+			if cps != p.EnPassant {
+				return false
+			}
+			if move.CapturedPiece() != board.PieceAt(cps) {
+				return false
+			}
+		} else if move.CapturedPiece() != board.PieceAt(move.Destination()) {
+			return false
+		}
+	} else if board.PieceAt(move.Destination()) != NoPiece {
+		return false
+	}
+
+	if move.IsQueenSideCastle() {
+		if color == White && !p.HasTag(WhiteCanCastleQueenSide) {
+			return false
+		}
+		if color == Black && !p.HasTag(BlackCanCastleQueenSide) {
+			return false
+		}
+	}
+
+	if move.IsKingSideCastle() {
+		if color == White && !p.HasTag(WhiteCanCastleKingSide) {
+			return false
+		}
+		if color == Black && !p.HasTag(BlackCanCastleKingSide) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (p *Position) GetQuietMoves(ml *MoveList) {
 	color := p.Turn()
 	board := p.Board
