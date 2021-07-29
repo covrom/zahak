@@ -463,6 +463,15 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 					position.UnMakeMove(move, oldTag, oldEnPassant, hc)
 					continue
 				}
+
+				// History pruning
+				lmrDepth := depthLeft - int8(lmrReductions[min8(31, depthLeft)][min(31, legalMoves)])
+				if lmrDepth < 2 && isQuiet && quietScores[quietMoves] < -3000 {
+					e.info.historyPruningCounter += 1
+					position.UnMakeMove(move, oldTag, oldEnPassant, hc)
+					continue
+				}
+
 			}
 
 			// Late Move Reduction
