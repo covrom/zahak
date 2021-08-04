@@ -161,18 +161,32 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 
 	hash := position.Hash()
 	nHashMove, nEval, nDepth, nType, ttHit := e.TranspositionTable.Get(hash)
-	if !isPvNode && ttHit && nDepth >= depthLeft {
-		if nEval >= beta && nType == LowerBound {
-			e.CacheHit()
-			return nEval
-		}
-		if nEval <= alpha && nType == UpperBound {
-			e.CacheHit()
-			return nEval
-		}
-		if nType == Exact {
-			e.CacheHit()
-			return nEval
+	if !isPvNode && ttHit {
+		if nDepth >= depthLeft {
+			if nEval >= beta && nType == LowerBound {
+				e.CacheHit()
+				return nEval
+			}
+			if nEval <= alpha && nType == UpperBound {
+				e.CacheHit()
+				return nEval
+			}
+			if nType == Exact {
+				e.CacheHit()
+				return nEval
+			}
+		} else if nDepth >= 3 && !isInCheck && e.doPruning && depthLeft-nDepth < 5 {
+			margin := 2 * p * int16(depthLeft-nDepth)
+			noisyAlpha := alpha
+			noisyBeta := beta
+			if nType != UpperBound {
+				noisyAlpha = max16(noisyAlpha, nEval-margin)
+			} else {
+				noisyBeta = min16(noisyBeta, nEval+margin)
+			}
+			if noisyAlpha >= noisyBeta {
+				return noisyAlpha
+			}
 		}
 	}
 
