@@ -542,9 +542,6 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 			}
 
 			var score int16
-			e.pred.Push(position.Hash())
-			e.innerLines[searchHeight+1].Recycle()
-			e.positionMoves[searchHeight+1] = move
 			if firstSearchedMove {
 				// Singular Extension
 				var extension int8
@@ -554,20 +551,21 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 					e.singularMoveCandidate == EmptyMove &&
 					nDepth > depthLeft-3 &&
 					nType != UpperBound &&
-					abs16(nEval) < WIN_IN_MAX &&
+					abs16(nEval) < WIN_IN_MAX/4 &&
 					!isRootNode {
 
 					// ttMove has been made to check legality
 					position.UnMakeMove(move, oldTag, oldEnPassant, hc)
 
 					// Search to reduced depth with a zero window a bit lower than ttScore
-					threshold := max16(nEval-3*int16(depthLeft)/2, -CHECKMATE_EVAL)
+					threshold := max16(nEval-2*int16(depthLeft), -CHECKMATE_EVAL)
 
 					e.singularMoveCandidate = move
 					e.innerLines[searchHeight].Recycle()
 					e.MovePickers[searchHeight] = e.tempMovePicker
 					e.skipFirstMove = true
 					score := e.alphaBeta(depthLeft/2-1, searchHeight, threshold-1, threshold)
+					e.innerLines[searchHeight].Recycle()
 					e.skipFirstMove = false
 					e.MovePickers[searchHeight] = movePicker
 					e.innerLines[searchHeight].Recycle()
@@ -583,6 +581,9 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 					position.MakeMove(move)
 				}
 
+				e.pred.Push(position.Hash())
+				e.innerLines[searchHeight+1].Recycle()
+				e.positionMoves[searchHeight+1] = move
 				bestscore = -e.alphaBeta(depthLeft-1+extension, searchHeight+1, -beta, -alpha)
 				position.UnMakeMove(move, oldTag, oldEnPassant, hc)
 				score = bestscore
@@ -605,6 +606,9 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 					alpha = bestscore
 				}
 			} else {
+				e.pred.Push(position.Hash())
+				e.innerLines[searchHeight+1].Recycle()
+				e.positionMoves[searchHeight+1] = move
 				score = -e.alphaBeta(depthLeft-1-LMR, searchHeight+1, -alpha-1, -alpha)
 				e.pred.Pop()
 				if score > alpha && score < beta {
