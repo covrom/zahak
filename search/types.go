@@ -47,6 +47,7 @@ type Info struct {
 	killerCounter              int64
 	historyCounter             int64
 	probCutCounter             int64
+	singularExtensionCounter   int64
 	historyPruningCounter      int64
 	internalIterativeReduction int64
 }
@@ -68,6 +69,7 @@ func (e *Engine) ShareInfo() {
 	atomic.AddInt64(&e.parent.globalInfo.researchCounter, e.info.researchCounter)
 	atomic.AddInt64(&e.parent.globalInfo.quiesceCounter, e.info.quiesceCounter)
 	atomic.AddInt64(&e.parent.globalInfo.killerCounter, e.info.killerCounter)
+	atomic.AddInt64(&e.parent.globalInfo.singularExtensionCounter, e.info.singularExtensionCounter)
 	atomic.AddInt64(&e.parent.globalInfo.historyCounter, e.info.historyCounter)
 	atomic.AddInt64(&e.parent.globalInfo.probCutCounter, e.info.probCutCounter)
 	atomic.AddInt64(&e.parent.globalInfo.historyPruningCounter, e.info.historyPruningCounter)
@@ -98,34 +100,38 @@ func (i *Info) Print() {
 	fmt.Printf("info string Research: %d\n", i.researchCounter)
 	fmt.Printf("info string Quiescence Nodes: %d\n", i.quiesceCounter)
 	fmt.Printf("info string Killer Moves: %d\n", i.killerCounter)
+	fmt.Printf("info string Singular Extension: %d\n", i.singularExtensionCounter)
 	fmt.Printf("info string History Moves: %d\n", i.historyCounter)
 	fmt.Printf("info string History Pruning: %d\n", i.historyPruningCounter)
 	fmt.Printf("info string Internal Iterative Reduction: %d\n", i.internalIterativeReduction)
 }
 
 type Engine struct {
-	Position           *Position
-	Ply                uint16
-	nodesVisited       int64
-	cacheHits          int64
-	positionMoves      []Move
-	killerMoves        [][]Move
-	searchHistory      [][]int32
-	MovePickers        []*MovePicker
-	triedQuietMoves    [][]Move
-	info               Info
-	pred               Predecessors
-	score              int16
-	innerLines         []PVLine
-	staticEvals        []int16
-	TranspositionTable *Cache
-	Pawnhash           *PawnCache
-	TotalTime          float64
-	doPruning          bool
-	isMainThread       bool
-	StartTime          time.Time
-	parent             *Runner
-	startDepth         int8
+	Position              *Position
+	Ply                   uint16
+	nodesVisited          int64
+	cacheHits             int64
+	positionMoves         []Move
+	killerMoves           [][]Move
+	searchHistory         [][]int32
+	MovePickers           []*MovePicker
+	triedQuietMoves       [][]Move
+	info                  Info
+	pred                  Predecessors
+	score                 int16
+	innerLines            []PVLine
+	staticEvals           []int16
+	TranspositionTable    *Cache
+	Pawnhash              *PawnCache
+	TotalTime             float64
+	doPruning             bool
+	isMainThread          bool
+	StartTime             time.Time
+	parent                *Runner
+	startDepth            int8
+	singularMoveCandidate Move
+	skipFirstMove         bool
+	tempMovePicker        *MovePicker
 }
 
 var MAX_DEPTH int8 = int8(100)
@@ -165,27 +171,30 @@ func NewEngine(tt *Cache, ph *PawnCache, parent *Runner) *Engine {
 	}
 
 	return &Engine{
-		Position:           nil,
-		Ply:                0,
-		nodesVisited:       0,
-		cacheHits:          0,
-		score:              0,
-		positionMoves:      make([]Move, MAX_DEPTH),
-		killerMoves:        make([][]Move, 125), // We assume there will be at most 126 iterations for each move/search
-		searchHistory:      make([][]int32, 12), // We have 12 pieces only
-		MovePickers:        movePickers,
-		triedQuietMoves:    make([][]Move, 250),
-		info:               NoInfo,
-		pred:               NewPredecessors(),
-		innerLines:         innerLines,
-		staticEvals:        make([]int16, MAX_DEPTH),
-		TranspositionTable: tt,
-		Pawnhash:           ph,
-		StartTime:          time.Now(),
-		TotalTime:          0,
-		doPruning:          false,
-		isMainThread:       false,
-		parent:             parent,
+		Position:              nil,
+		Ply:                   0,
+		nodesVisited:          0,
+		cacheHits:             0,
+		score:                 0,
+		positionMoves:         make([]Move, MAX_DEPTH),
+		killerMoves:           make([][]Move, 125), // We assume there will be at most 126 iterations for each move/search
+		searchHistory:         make([][]int32, 12), // We have 12 pieces only
+		MovePickers:           movePickers,
+		triedQuietMoves:       make([][]Move, 250),
+		info:                  NoInfo,
+		pred:                  NewPredecessors(),
+		innerLines:            innerLines,
+		staticEvals:           make([]int16, MAX_DEPTH),
+		TranspositionTable:    tt,
+		Pawnhash:              ph,
+		StartTime:             time.Now(),
+		TotalTime:             0,
+		doPruning:             false,
+		isMainThread:          false,
+		parent:                parent,
+		singularMoveCandidate: EmptyMove,
+		skipFirstMove:         false,
+		tempMovePicker:        EmptyMovePicker(),
 	}
 }
 
@@ -199,7 +208,7 @@ func (r *Runner) Ponderhit() {
 	fmt.Printf("info nodes %d\n", r.nodesVisited)
 }
 
-var NoInfo = Info{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+var NoInfo = Info{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 func (r *Runner) ClearForSearch() {
 	r.nodesVisited = 0
