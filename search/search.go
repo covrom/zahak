@@ -545,13 +545,13 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 			if firstSearchedMove {
 				// Singular Extension
 				var extension int8
-				if depthLeft > 8 &&
+				if depthLeft >= 7 &&
 					move == nHashMove &&
 					ttHit &&
 					e.singularMoveCandidate == EmptyMove &&
-					nDepth > depthLeft-3 &&
+					nDepth >= depthLeft-3 &&
 					nType != UpperBound &&
-					abs16(nEval) < WIN_IN_MAX/4 &&
+					abs16(nEval) < WIN_IN_MAX &&
 					!isRootNode {
 
 					// ttMove has been made to check legality
@@ -564,7 +564,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 					e.innerLines[searchHeight].Recycle()
 					e.MovePickers[searchHeight] = e.tempMovePicker
 					e.skipFirstMove = true
-					score := e.alphaBeta(depthLeft/2-1, searchHeight, threshold-1, threshold)
+					score := e.alphaBeta((depthLeft-1)/2, searchHeight, threshold-1, threshold)
 					e.innerLines[searchHeight].Recycle()
 					e.skipFirstMove = false
 					e.MovePickers[searchHeight] = movePicker
@@ -575,6 +575,12 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 					if score < threshold {
 						e.info.singularExtensionCounter += 1
 						extension = 1
+					}
+
+					// Some version of multi-cut... Idea is shamelessy taken from Stockfish
+					if threshold >= beta {
+						e.info.multiCutCounter += 1
+						return threshold
 					}
 
 					// Replay ttMove

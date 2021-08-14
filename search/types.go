@@ -48,6 +48,7 @@ type Info struct {
 	historyCounter             int64
 	probCutCounter             int64
 	singularExtensionCounter   int64
+	multiCutCounter            int64
 	historyPruningCounter      int64
 	internalIterativeReduction int64
 }
@@ -73,6 +74,7 @@ func (e *Engine) ShareInfo() {
 	atomic.AddInt64(&e.parent.globalInfo.historyCounter, e.info.historyCounter)
 	atomic.AddInt64(&e.parent.globalInfo.probCutCounter, e.info.probCutCounter)
 	atomic.AddInt64(&e.parent.globalInfo.historyPruningCounter, e.info.historyPruningCounter)
+	atomic.AddInt64(&e.parent.globalInfo.multiCutCounter, e.info.multiCutCounter)
 	atomic.AddInt64(&e.parent.globalInfo.internalIterativeReduction, e.info.internalIterativeReduction)
 
 	atomic.AddInt64(&e.parent.nodesVisited, e.nodesVisited)
@@ -100,6 +102,7 @@ func (i *Info) Print() {
 	fmt.Printf("info string Research: %d\n", i.researchCounter)
 	fmt.Printf("info string Quiescence Nodes: %d\n", i.quiesceCounter)
 	fmt.Printf("info string Killer Moves: %d\n", i.killerCounter)
+	fmt.Printf("info string Multi-Cut: %d\n", i.multiCutCounter)
 	fmt.Printf("info string Singular Extension: %d\n", i.singularExtensionCounter)
 	fmt.Printf("info string History Moves: %d\n", i.historyCounter)
 	fmt.Printf("info string History Pruning: %d\n", i.historyPruningCounter)
@@ -208,7 +211,7 @@ func (r *Runner) Ponderhit() {
 	fmt.Printf("info nodes %d\n", r.nodesVisited)
 }
 
-var NoInfo = Info{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+var NoInfo = Info{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 func (r *Runner) ClearForSearch() {
 	r.nodesVisited = 0
