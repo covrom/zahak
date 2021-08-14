@@ -382,62 +382,48 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 
 	movePicker := e.MovePickers[searchHeight]
 	movePicker.RecycleWith(position, e, depthLeft, nHashMove, false)
-	oldAlpha := alpha
 
 	// using fail soft with negamax:
-	var bestscore int16
-	var hashmove Move
-	legalMoves := 1
-	quietMoves := -1
-	legalQuiteMove := -1
-	noisyMoves := -1
-	for true {
-		hashmove = movePicker.Next()
-		if hashmove == EmptyMove {
-			break
-		}
-		isQuiet := false
-		if hashmove.IsCapture() || hashmove.PromoType() != NoType {
-			noisyMoves += 1
-		} else {
-			isQuiet = true
-			quietMoves += 1
-		}
-		if oldEnPassant, oldTag, hc, ok := position.MakeMove(hashmove); ok {
-			if isQuiet {
-				legalQuiteMove += 1
-			}
-			e.pred.Push(position.Hash())
-			e.innerLines[searchHeight+1].Recycle()
-			e.positionMoves[searchHeight+1] = hashmove
-			e.NoteMove(hashmove, legalQuiteMove, searchHeight)
-			bestscore = -e.alphaBeta(depthLeft-1, searchHeight+1, -beta, -alpha)
-			e.pred.Pop()
-			position.UnMakeMove(hashmove, oldTag, oldEnPassant, hc)
-			if bestscore > alpha {
-				if bestscore >= beta {
-					if (e.isMainThread && !e.TimeManager().AbruptStop) || (!e.isMainThread && !e.parent.Stop) {
-						e.TranspositionTable.Set(hash, hashmove, bestscore, depthLeft, LowerBound, e.Ply)
-						e.AddHistory(hashmove, hashmove.MovingPiece(), hashmove.Destination(), depthLeft, searchHeight, legalQuiteMove)
-					}
-					return bestscore
-				}
-				// Potential PV move, lets copy it to the current pv-line
-				e.innerLines[searchHeight].AddFirst(hashmove)
-				e.innerLines[searchHeight].ReplaceLine(e.innerLines[searchHeight+1])
-				alpha = bestscore
-			}
-			break
-		}
-	}
+	// for true {
+	// 	hashmove = movePicker.Next()
+	// 	if hashmove == EmptyMove {
+	// 		break
+	// 	}
+	// 	isQuiet := false
+	// 	if hashmove.IsCapture() || hashmove.PromoType() != NoType {
+	// 		noisyMoves += 1
+	// 	} else {
+	// 		isQuiet = true
+	// 		quietMoves += 1
+	// 	}
+	// 	if oldEnPassant, oldTag, hc, ok := position.MakeMove(hashmove); ok {
+	// 		if isQuiet {
+	// 			legalQuiteMove += 1
+	// 		}
+	// 		e.pred.Push(position.Hash())
+	// 		e.innerLines[searchHeight+1].Recycle()
+	// 		e.positionMoves[searchHeight+1] = hashmove
+	// 		e.NoteMove(hashmove, legalQuiteMove, searchHeight)
+	// 		bestscore = -e.alphaBeta(depthLeft-1, searchHeight+1, -beta, -alpha)
+	// 		e.pred.Pop()
+	// 		position.UnMakeMove(hashmove, oldTag, oldEnPassant, hc)
+	// 		if bestscore > alpha {
+	// 			if bestscore >= beta {
+	// 				if (e.isMainThread && !e.TimeManager().AbruptStop) || (!e.isMainThread && !e.parent.Stop) {
+	// 					e.TranspositionTable.Set(hash, hashmove, bestscore, depthLeft, LowerBound, e.Ply)
+	// 					e.AddHistory(hashmove, hashmove.MovingPiece(), hashmove.Destination(), depthLeft, searchHeight, legalQuiteMove)
+	// 				}
+	// 				return bestscore
+	// 			}
+	// 			// Potential PV move, lets copy it to the current pv-line
+	// 			e.innerLines[searchHeight].AddFirst(hashmove)
+	// 			e.innerLines[searchHeight].ReplaceLine(e.innerLines[searchHeight+1])
+	// 			alpha = bestscore
+	// 		}
+	// 		break
+	// 	}
+	// }
 
-	if hashmove == EmptyMove {
-		if isInCheck {
-			return -CHECKMATE_EVAL + int16(searchHeight)
-		} else {
-			return 0
-		}
-	}
 	pruningThreashold := int(5 + depthLeft*depthLeft)
 	if !improving {
 		pruningThreashold /= 2
@@ -449,10 +435,18 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 	}
 	seeScores := movePicker.captureMoveList.Scores
 	quietScores := movePicker.quietMoveList.Scores
+	oldAlpha := alpha
+	var bestscore int16
+	var hashmove Move
+	firstSearchedMove := true
+	legalMoves := 0
+	quietMoves := -1
+	legalQuiteMove := -1
+	noisyMoves := -1
+
 	var historyThreashold int32 = int32(depthLeft) * -1024
 	var move Move
 	for true {
-
 		if isRootNode {
 			if e.isMainThread && e.TimeManager().ShouldStop(true, bestscore-e.score >= -20) {
 				break
@@ -490,7 +484,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 			LMR := int8(0)
 
 			killerScore := e.KillerMoveScore(move, searchHeight)
-			if !isInCheck && e.doPruning && !isRootNode && bestscore > -WIN_IN_MAX {
+			if !isInCheck && e.doPruning && !isRootNode && bestscore > -WIN_IN_MAX && !firstSearchedMove {
 
 				// Late Move Pruning
 				if notPromoting && !isCaptureMove && !isCheckMove && depthLeft <= 8 &&
@@ -518,7 +512,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 			}
 
 			// Late Move Reduction
-			if !isInCheck && e.doPruning && isQuiet && depthLeft > 2 && legalMoves > lmrThreashold {
+			if !isInCheck && e.doPruning && isQuiet && depthLeft > 2 && legalMoves > lmrThreashold && !firstSearchedMove {
 				e.info.lmrCounter += 1
 				LMR = int8(lmrReductions[min8(31, depthLeft)][min(31, legalMoves)])
 
@@ -541,23 +535,46 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 				LMR = min8(depthLeft-2, max8(LMR, 1))
 			}
 
+			var score int16
 			e.pred.Push(position.Hash())
 			e.innerLines[searchHeight+1].Recycle()
 			e.positionMoves[searchHeight+1] = move
-			score := -e.alphaBeta(depthLeft-1-LMR, searchHeight+1, -alpha-1, -alpha)
-			e.pred.Pop()
-			if score > alpha && score < beta {
-				e.info.researchCounter += 1
-				// research with window [alpha;beta]
-				e.pred.Push(position.Hash())
-				e.innerLines[searchHeight+1].Recycle()
-				score = -e.alphaBeta(depthLeft-1, searchHeight+1, -beta, -alpha)
+			if firstSearchedMove {
+				bestscore = -e.alphaBeta(depthLeft-1, searchHeight+1, -beta, -alpha)
+				position.UnMakeMove(move, oldTag, oldEnPassant, hc)
+				score = bestscore
+				hashmove = move
+				firstSearchedMove = false
 				e.pred.Pop()
-				if score > alpha {
-					alpha = score
+				if bestscore > alpha {
+					if bestscore >= beta {
+						if (e.isMainThread && !e.TimeManager().AbruptStop) || (!e.isMainThread && !e.parent.Stop) {
+							e.TranspositionTable.Set(hash, hashmove, bestscore, depthLeft, LowerBound, e.Ply)
+							e.AddHistory(hashmove, hashmove.MovingPiece(), hashmove.Destination(), depthLeft, searchHeight, legalQuiteMove)
+						}
+						return bestscore
+					}
+					// Potential PV move, lets copy it to the current pv-line
+					e.innerLines[searchHeight].AddFirst(hashmove)
+					e.innerLines[searchHeight].ReplaceLine(e.innerLines[searchHeight+1])
+					alpha = bestscore
 				}
+			} else {
+				score = -e.alphaBeta(depthLeft-1-LMR, searchHeight+1, -alpha-1, -alpha)
+				e.pred.Pop()
+				if score > alpha && score < beta {
+					e.info.researchCounter += 1
+					// research with window [alpha;beta]
+					e.pred.Push(position.Hash())
+					e.innerLines[searchHeight+1].Recycle()
+					score = -e.alphaBeta(depthLeft-1, searchHeight+1, -beta, -alpha)
+					e.pred.Pop()
+					if score > alpha {
+						alpha = score
+					}
+				}
+				position.UnMakeMove(move, oldTag, oldEnPassant, hc)
 			}
-			position.UnMakeMove(move, oldTag, oldEnPassant, hc)
 
 			if score > bestscore {
 				if score >= beta {
@@ -583,6 +600,14 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 				return -MAX_INT
 			}
 			e.parent.mu.RUnlock()
+		}
+	}
+
+	if hashmove == EmptyMove {
+		if isInCheck {
+			return -CHECKMATE_EVAL + int16(searchHeight)
+		} else {
+			return 0
 		}
 	}
 	if (e.isMainThread && !e.TimeManager().AbruptStop) || (!e.isMainThread && !e.parent.Stop) {
