@@ -377,7 +377,7 @@ func findK() float64 {
 }
 
 func linearEvaluation(pos *Position) int16 {
-	eval := Evaluate(pos, pawnhash)
+	eval := EvaluateForTuning(pos, pawnhash)
 	if pos.Turn() == Black {
 		return -eval
 	}

@@ -101,7 +101,16 @@ func PSQT(piece Piece, sq Square, isEndgame bool) int16 {
 	return 0
 }
 
+func EvaluateForTuning(position *Position, pawnhash *PawnCache) int16 {
+	position.MaterialAndPSQT()
+	return evaluateBase(position, pawnhash, false)
+}
+
 func Evaluate(position *Position, pawnhash *PawnCache) int16 {
+	return evaluateBase(position, pawnhash, true)
+}
+
+func evaluateBase(position *Position, pawnhash *PawnCache, enableLazyEval bool) int16 {
 	var drawDivider int16 = 0
 	// position.MaterialAndPSQT()
 	board := position.Board
@@ -170,7 +179,7 @@ func Evaluate(position *Position, pawnhash *PawnCache) int16 {
 	pawnMG, pawnEG := CachedPawnStructureEval(position, pawnhash)
 
 	// Lazy eval
-	{
+	if enableLazyEval {
 		var evalEG, evalMG int16
 		if turn == White {
 			evalEG = whiteCentipawnsEG - blackCentipawnsEG + pawnEG
