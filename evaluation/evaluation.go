@@ -126,6 +126,69 @@ func Evaluate(position *Position, pawnhash *PawnCache) int16 {
 	blackCentipawnsMG := position.BlackMiddlegamePSQT
 	blackCentipawnsEG := position.BlackEndgamePSQT
 
+	pawnFactorMG := int16(16-blackPawnsCount-whitePawnsCount) * MiddlegamePawnFactorCoeff
+	pawnFactorEG := int16(16-blackPawnsCount-whitePawnsCount) * EndgamePawnFactorCoeff
+
+	blackCentipawnsMG += blackPawnsCount * BlackPawn.Weight()
+	blackCentipawnsMG += blackKnightsCount * (BlackKnight.Weight() - pawnFactorMG)
+	blackCentipawnsMG += blackBishopsCount * (BlackBishop.Weight())
+	blackCentipawnsMG += blackRooksCount * (BlackRook.Weight() + pawnFactorMG)
+	blackCentipawnsMG += blackQueensCount * BlackQueen.Weight()
+
+	blackCentipawnsEG += blackPawnsCount * BlackPawn.Weight()
+	blackCentipawnsEG += blackKnightsCount * (BlackKnight.Weight() - pawnFactorEG)
+	blackCentipawnsEG += blackBishopsCount * (BlackBishop.Weight())
+	blackCentipawnsEG += blackRooksCount * (BlackRook.Weight() + pawnFactorEG)
+	blackCentipawnsEG += blackQueensCount * BlackQueen.Weight()
+
+	whiteCentipawnsMG += whitePawnsCount * WhitePawn.Weight()
+	whiteCentipawnsMG += whiteKnightsCount * (WhiteKnight.Weight() - pawnFactorMG)
+	whiteCentipawnsMG += whiteBishopsCount * (WhiteBishop.Weight())
+	whiteCentipawnsMG += whiteRooksCount * (WhiteRook.Weight() + pawnFactorMG)
+	whiteCentipawnsMG += whiteQueensCount * WhiteQueen.Weight()
+
+	whiteCentipawnsEG += whitePawnsCount * WhitePawn.Weight()
+	whiteCentipawnsEG += whiteKnightsCount * (WhiteKnight.Weight() - pawnFactorEG)
+	whiteCentipawnsEG += whiteBishopsCount * (WhiteBishop.Weight())
+	whiteCentipawnsEG += whiteRooksCount * (WhiteRook.Weight() + pawnFactorEG)
+	whiteCentipawnsEG += whiteQueensCount * WhiteQueen.Weight()
+
+	phase := TotalPhase -
+		whitePawnsCount*PawnPhase -
+		blackPawnsCount*PawnPhase -
+		whiteKnightsCount*KnightPhase -
+		blackKnightsCount*KnightPhase -
+		whiteBishopsCount*BishopPhase -
+		blackBishopsCount*BishopPhase -
+		whiteRooksCount*RookPhase -
+		blackRooksCount*RookPhase -
+		whiteQueensCount*QueenPhase -
+		blackQueensCount*QueenPhase
+
+	phase = (phase*256 + HalfPhase) / TotalPhase
+
+	pawnMG, pawnEG := CachedPawnStructureEval(position, pawnhash)
+
+	// Lazy eval
+	{
+		var evalEG, evalMG int16
+		if turn == White {
+			evalEG = whiteCentipawnsEG - blackCentipawnsEG + pawnEG
+			evalMG = whiteCentipawnsMG - blackCentipawnsMG + pawnMG
+		} else {
+			evalEG = blackCentipawnsEG - whiteCentipawnsEG - pawnEG
+			evalMG = blackCentipawnsMG - whiteCentipawnsMG - pawnMG
+		}
+
+		if abs16((evalMG+evalEG)/2) > 1024 {
+			mg := int32(evalMG)
+			eg := int32(evalEG)
+			phs := int32(phase)
+			taperedEval := int16(((mg * (256 - phs)) + eg*phs) / 256)
+			return toEval(taperedEval + Tempo)
+		}
+	}
+
 	whites := board.GetWhitePieces()
 	blacks := board.GetBlackPieces()
 	all := whites | blacks
@@ -192,33 +255,6 @@ func Evaluate(position *Position, pawnhash *PawnCache) int16 {
 		}
 	}
 
-	pawnFactorMG := int16(16-blackPawnsCount-whitePawnsCount) * MiddlegamePawnFactorCoeff
-	pawnFactorEG := int16(16-blackPawnsCount-whitePawnsCount) * EndgamePawnFactorCoeff
-
-	blackCentipawnsMG += blackPawnsCount * BlackPawn.Weight()
-	blackCentipawnsMG += blackKnightsCount * (BlackKnight.Weight() - pawnFactorMG)
-	blackCentipawnsMG += blackBishopsCount * (BlackBishop.Weight())
-	blackCentipawnsMG += blackRooksCount * (BlackRook.Weight() + pawnFactorMG)
-	blackCentipawnsMG += blackQueensCount * BlackQueen.Weight()
-
-	blackCentipawnsEG += blackPawnsCount * BlackPawn.Weight()
-	blackCentipawnsEG += blackKnightsCount * (BlackKnight.Weight() - pawnFactorEG)
-	blackCentipawnsEG += blackBishopsCount * (BlackBishop.Weight())
-	blackCentipawnsEG += blackRooksCount * (BlackRook.Weight() + pawnFactorEG)
-	blackCentipawnsEG += blackQueensCount * BlackQueen.Weight()
-
-	whiteCentipawnsMG += whitePawnsCount * WhitePawn.Weight()
-	whiteCentipawnsMG += whiteKnightsCount * (WhiteKnight.Weight() - pawnFactorMG)
-	whiteCentipawnsMG += whiteBishopsCount * (WhiteBishop.Weight())
-	whiteCentipawnsMG += whiteRooksCount * (WhiteRook.Weight() + pawnFactorMG)
-	whiteCentipawnsMG += whiteQueensCount * WhiteQueen.Weight()
-
-	whiteCentipawnsEG += whitePawnsCount * WhitePawn.Weight()
-	whiteCentipawnsEG += whiteKnightsCount * (WhiteKnight.Weight() - pawnFactorEG)
-	whiteCentipawnsEG += whiteBishopsCount * (WhiteBishop.Weight())
-	whiteCentipawnsEG += whiteRooksCount * (WhiteRook.Weight() + pawnFactorEG)
-	whiteCentipawnsEG += whiteQueensCount * WhiteQueen.Weight()
-
 	// Bishop Pair
 	if whiteBishopsCount >= 2 {
 		whiteCentipawnsMG += MiddlegameBishopPairAward
@@ -242,8 +278,6 @@ func Evaluate(position *Position, pawnhash *PawnCache) int16 {
 	blackCentipawnsMG += rookEval.blackMG
 	blackCentipawnsEG += rookEval.blackEG
 
-	pawnMG, pawnEG := CachedPawnStructureEval(position, pawnhash)
-
 	kingSafetyEval := KingSafety(bbBlackKing, bbWhiteKing, bbBlackPawn, bbWhitePawn,
 		position.HasTag(BlackCanCastleQueenSide) || position.HasTag(BlackCanCastleKingSide),
 		position.HasTag(WhiteCanCastleQueenSide) || position.HasTag(WhiteCanCastleKingSide),
@@ -258,20 +292,6 @@ func Evaluate(position *Position, pawnhash *PawnCache) int16 {
 	whiteCentipawnsEG += knightOutpostEval.whiteEG
 	blackCentipawnsMG += knightOutpostEval.blackMG
 	blackCentipawnsEG += knightOutpostEval.blackEG
-
-	phase := TotalPhase -
-		whitePawnsCount*PawnPhase -
-		blackPawnsCount*PawnPhase -
-		whiteKnightsCount*KnightPhase -
-		blackKnightsCount*KnightPhase -
-		whiteBishopsCount*BishopPhase -
-		blackBishopsCount*BishopPhase -
-		whiteRooksCount*RookPhase -
-		blackRooksCount*RookPhase -
-		whiteQueensCount*QueenPhase -
-		blackQueensCount*QueenPhase
-
-	phase = (phase*256 + HalfPhase) / TotalPhase
 
 	var evalEG, evalMG int16
 
@@ -669,4 +689,11 @@ func min16(x int16, y int16) int16 {
 		return x
 	}
 	return y
+}
+
+func abs16(x int16) int16 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
