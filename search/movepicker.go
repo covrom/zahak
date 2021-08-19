@@ -13,6 +13,7 @@ type MovePicker struct {
 	quietMoveList   *MoveList
 	captureMoveList *MoveList
 	moveOrder       int8
+	currentMove     Move
 	canUseHashMove  bool
 	isQuiescence    bool
 }
@@ -41,6 +42,12 @@ func (mp *MovePicker) RecycleWith(p *Position, e *Engine, moveOrder int8, hashmo
 	mp.hashmove = hashmove
 	mp.isQuiescence = isQuiescence
 	mp.canUseHashMove = hashmove != EmptyMove
+	if moveOrder >= 0 {
+		mp.currentMove = e.positionMoves[moveOrder]
+	} else {
+		mp.currentMove = EmptyMove
+	}
+
 	nextCapture := 0
 	nextQuiet := 0
 	if hashmove != EmptyMove {
@@ -168,6 +175,10 @@ func (mp *MovePicker) scoreQuietMoves() int {
 	scores := mp.quietMoveList.Scores
 	moves := mp.quietMoveList.Moves
 	size := mp.quietMoveList.Size
+	var counterMove Move
+	if mp.currentMove != EmptyMove {
+		counterMove = engine.countermoves[mp.currentMove.MovingPiece()-1][mp.currentMove.Destination()]
+	}
 
 	_ = scores[size-1]
 	_ = moves[size-1]
@@ -192,6 +203,11 @@ func (mp *MovePicker) scoreQuietMoves() int {
 
 		if killer != 0 {
 			scores[i] = killer
+			goto end
+		}
+
+		if move == counterMove {
+			scores[i] = 70_000_000
 			goto end
 		}
 
