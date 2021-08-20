@@ -67,6 +67,10 @@ func (uci *UCI) Start() {
 					dir = -1
 				}
 				fmt.Printf("%d\n", dir*Evaluate(game.Position(), uci.runner.Engines[0].Pawnhash))
+			case "key":
+				fmt.Println(game.Position().Hash())
+			case "fen":
+				fmt.Println(game.Fen())
 			case "uci":
 				fmt.Printf("id name Zahak %s\n", uci.version)
 				fmt.Print("id author Amanj\n")
