@@ -279,14 +279,12 @@ func Evaluate(position *Position, pawnhash *PawnCache, weakColor Color, weakDelt
 		evalEG = whiteCentipawnsEG - blackCentipawnsEG + pawnEG
 		evalMG = whiteCentipawnsMG - blackCentipawnsMG + pawnMG
 		if weakColor == Black && evalEG < 1000 && evalMG < 1000 {
-			evalEG += weakDelta
 			evalMG += weakDelta
 		}
 	} else {
 		evalEG = blackCentipawnsEG - whiteCentipawnsEG - pawnEG
 		evalMG = blackCentipawnsMG - whiteCentipawnsMG - pawnMG
 		if weakColor == White && evalEG < 1000 && evalMG < 1000 {
-			evalEG += weakDelta
 			evalMG += weakDelta
 		}
 	}
