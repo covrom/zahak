@@ -13,34 +13,40 @@ type Eval struct {
 	whiteEG int16
 }
 
-const CHECKMATE_EVAL int16 = 30000
-const MAX_NON_CHECKMATE int16 = 25000
-const PawnPhase int16 = 0
-const KnightPhase int16 = 1
-const BishopPhase int16 = 1
-const RookPhase int16 = 2
-const QueenPhase int16 = 4
-const TotalPhase int16 = PawnPhase*16 + KnightPhase*4 + BishopPhase*4 + RookPhase*4 + QueenPhase*2
-const HalfPhase = TotalPhase / 2
-const Tempo int16 = 5
+const (
+	CHECKMATE_EVAL    int16 = 30000
+	MAX_NON_CHECKMATE int16 = 25000
+	PawnPhase         int16 = 0
+	KnightPhase       int16 = 1
+	BishopPhase       int16 = 1
+	RookPhase         int16 = 2
+	QueenPhase        int16 = 4
+	TotalPhase        int16 = PawnPhase*16 + KnightPhase*4 + BishopPhase*4 + RookPhase*4 + QueenPhase*2
+	HalfPhase               = TotalPhase / 2
+	Tempo             int16 = 5
+)
 
-const BlackKingSideMask = uint64(1<<F8 | 1<<G8 | 1<<H8 | 1<<F7 | 1<<G7 | 1<<H7)
-const WhiteKingSideMask = uint64(1<<F1 | 1<<G1 | 1<<H1 | 1<<F2 | 1<<G2 | 1<<H2)
-const BlackQueenSideMask = uint64(1<<C8 | 1<<B8 | 1<<A8 | 1<<A7 | 1<<B7 | 1<<C7)
-const WhiteQueenSideMask = uint64(1<<C1 | 1<<B1 | 1<<A1 | 1<<A2 | 1<<B2 | 1<<C2)
+const (
+	BlackKingSideMask  = uint64(1<<F8 | 1<<G8 | 1<<H8 | 1<<F7 | 1<<G7 | 1<<H7)
+	WhiteKingSideMask  = uint64(1<<F1 | 1<<G1 | 1<<H1 | 1<<F2 | 1<<G2 | 1<<H2)
+	BlackQueenSideMask = uint64(1<<C8 | 1<<B8 | 1<<A8 | 1<<A7 | 1<<B7 | 1<<C7)
+	WhiteQueenSideMask = uint64(1<<C1 | 1<<B1 | 1<<A1 | 1<<A2 | 1<<B2 | 1<<C2)
+)
 
-const BlackAShield = uint64(1<<A7 | 1<<A6)
-const BlackBShield = uint64(1<<B7 | 1<<B6)
-const BlackCShield = uint64(1<<C7 | 1<<C6)
-const BlackFShield = uint64(1<<F7 | 1<<F6)
-const BlackGShield = uint64(1<<G7 | 1<<G6)
-const BlackHShield = uint64(1<<H7 | 1<<H6)
-const WhiteAShield = uint64(1<<A2 | 1<<A3)
-const WhiteBShield = uint64(1<<B2 | 1<<B3)
-const WhiteCShield = uint64(1<<C2 | 1<<C3)
-const WhiteFShield = uint64(1<<F2 | 1<<F3)
-const WhiteGShield = uint64(1<<G2 | 1<<G3)
-const WhiteHShield = uint64(1<<H2 | 1<<H3)
+const (
+	BlackAShield = uint64(1<<A7 | 1<<A6)
+	BlackBShield = uint64(1<<B7 | 1<<B6)
+	BlackCShield = uint64(1<<C7 | 1<<C6)
+	BlackFShield = uint64(1<<F7 | 1<<F6)
+	BlackGShield = uint64(1<<G7 | 1<<G6)
+	BlackHShield = uint64(1<<H7 | 1<<H6)
+	WhiteAShield = uint64(1<<A2 | 1<<A3)
+	WhiteBShield = uint64(1<<B2 | 1<<B3)
+	WhiteCShield = uint64(1<<C2 | 1<<C3)
+	WhiteFShield = uint64(1<<F2 | 1<<F3)
+	WhiteGShield = uint64(1<<G2 | 1<<G3)
+	WhiteHShield = uint64(1<<H2 | 1<<H3)
+)
 
 func PSQT(piece Piece, sq Square, isEndgame bool) int16 {
 	if isEndgame {
@@ -278,14 +284,20 @@ func Evaluate(position *Position, pawnhash *PawnCache, weakColor Color, weakDelt
 	if turn == White {
 		evalEG = whiteCentipawnsEG - blackCentipawnsEG + pawnEG
 		evalMG = whiteCentipawnsMG - blackCentipawnsMG + pawnMG
-		if weakColor == Black && evalEG < 1000 && evalMG < 1000 {
-			evalMG += weakDelta
+		if weakColor == Black && evalMG > 100 && evalMG < 2000 {
+			evalMG *= weakDelta
+		}
+		if weakColor == White && evalMG < -100 && evalMG > -2000 {
+			evalMG *= weakDelta
 		}
 	} else {
 		evalEG = blackCentipawnsEG - whiteCentipawnsEG - pawnEG
 		evalMG = blackCentipawnsMG - whiteCentipawnsMG - pawnMG
-		if weakColor == White && evalEG < 1000 && evalMG < 1000 {
-			evalMG += weakDelta
+		if weakColor == White && evalMG > 100 && evalMG < 2000 {
+			evalMG *= weakDelta
+		}
+		if weakColor == Black && evalMG < -100 && evalMG > -2000 {
+			evalMG *= weakDelta
 		}
 	}
 

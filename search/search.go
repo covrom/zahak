@@ -41,11 +41,13 @@ func (e *Engine) Search(depth int8) {
 	e.parent.SendBestMove()
 }
 
-var p = WhitePawn.Weight()
-var r = WhiteRook.Weight()
-var b = WhiteBishop.Weight()
-var q = WhiteQueen.Weight()
-var WIN_IN_MAX = CHECKMATE_EVAL - int16(MAX_DEPTH)
+var (
+	p          = WhitePawn.Weight()
+	r          = WhiteRook.Weight()
+	b          = WhiteBishop.Weight()
+	q          = WhiteQueen.Weight()
+	WIN_IN_MAX = CHECKMATE_EVAL - int16(MAX_DEPTH)
+)
 
 var lmrReductions [32][32]int = initLMR()
 
@@ -190,9 +192,9 @@ func (e *Engine) aspirationWindow(prevScore int16, iterationDepth int8) int16 {
 
 func weakDelta(h int16) int16 {
 	if h > 32 {
-		return 2048
+		return 16
 	}
-	return h * h * 2
+	return h / 2
 }
 
 func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta int16) int16 {
@@ -227,7 +229,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 		return eval
 	}
 
-	var isInCheck = position.IsInCheck()
+	isInCheck := position.IsInCheck()
 	if isInCheck {
 		e.info.checkExtentionCounter += 1
 		depthLeft += 1 // Check Extension
@@ -314,7 +316,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 		// NullMove pruning
 		isNullMoveAllowed := currentMove != EmptyMove && !position.IsEndGame()
 		if isNullMoveAllowed && depthLeft >= 2 && eval > beta {
-			var R = 4 + depthLeft/4
+			R := 4 + depthLeft/4
 			if eval >= beta+50 {
 				R = min8(R, depthLeft)
 			} else {
