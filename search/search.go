@@ -108,6 +108,8 @@ func (e *Engine) rootSearch(depth int8, startDepth int8, depthIncrement int8) {
 			globalDepth = e.parent.depth
 			bookmove = e.parent.isBookmove
 			e.score = e.parent.score
+			e.vsHuman = e.parent.VsHuman
+			e.meColor = e.Position.Turn()
 			e.parent.mu.RUnlock()
 
 			if bookmove {
@@ -186,6 +188,13 @@ func (e *Engine) aspirationWindow(prevScore int16, iterationDepth int8) int16 {
 	return e.alphaBeta(iterationDepth, 0, -MAX_INT, MAX_INT)
 }
 
+func weakDelta(h int16) int16 {
+	if h > 32 {
+		return 2048
+	}
+	return h * h * 2
+}
+
 func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta int16) int16 {
 	e.VisitNode()
 
@@ -201,8 +210,19 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 		return 0
 	}
 
+	weakColor := NoColor
+	weakDelta := weakDelta(int16(searchHeight))
+
+	if e.vsHuman {
+		if e.meColor == White {
+			weakColor = Black
+		} else {
+			weakColor = White
+		}
+	}
+
 	if searchHeight >= MAX_DEPTH-1 {
-		eval := Evaluate(position, pawnhash)
+		eval := Evaluate(position, pawnhash, weakColor, weakDelta)
 		e.staticEvals[searchHeight] = eval
 		return eval
 	}
@@ -214,7 +234,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 	}
 
 	if depthLeft <= 0 {
-		e.staticEvals[searchHeight] = Evaluate(position, pawnhash)
+		e.staticEvals[searchHeight] = Evaluate(position, pawnhash, weakColor, weakDelta)
 		return e.quiescence(alpha, beta, searchHeight)
 	}
 
@@ -262,7 +282,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 	if !isRootNode && currentMove == EmptyMove {
 		eval = -1 * (e.staticEvals[searchHeight-1] + Tempo + Tempo)
 	} else {
-		eval = Evaluate(position, pawnhash)
+		eval = Evaluate(position, pawnhash, weakColor, weakDelta)
 	}
 
 	e.staticEvals[searchHeight] = eval
@@ -339,7 +359,7 @@ func (e *Engine) alphaBeta(depthLeft int8, searchHeight int8, alpha int16, beta 
 						e.innerLines[searchHeight+1].Recycle()
 						e.pred.Push(position.Hash())
 						e.positionMoves[searchHeight+1] = move
-						childEval := Evaluate(position, pawnhash)
+						childEval := Evaluate(position, pawnhash, weakColor, weakDelta)
 						e.staticEvals[searchHeight+1] = childEval
 						score = -e.quiescence(-probBeta, -probBeta+1, searchHeight+1)
 						e.pred.Pop()

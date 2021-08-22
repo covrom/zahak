@@ -66,7 +66,7 @@ func (uci *UCI) Start() {
 				if game.Position().Turn() == Black {
 					dir = -1
 				}
-				fmt.Printf("%d\n", dir*Evaluate(game.Position(), uci.runner.Engines[0].Pawnhash))
+				fmt.Printf("%d\n", dir*Evaluate(game.Position(), uci.runner.Engines[0].Pawnhash, NoColor, 0))
 			case "uci":
 				fmt.Printf("id name Zahak %s\n", uci.version)
 				fmt.Print("id author Amanj\n")
@@ -75,6 +75,7 @@ func (uci *UCI) Start() {
 				fmt.Printf("option name Pawnhash type spin default %d min 1 max %d\n", DEFAULT_PAWNHASH_SIZE, MAX_PAWNHASH_SIZE)
 				fmt.Printf("option name Book type check default %t\n", uci.withBook)
 				fmt.Printf("option name Threads type spin default %d min %d max %d\n", defaultCPU, minCPU, maxCPU)
+				fmt.Print("option name VsHuman type check default false\n")
 				fmt.Print("uciok\n")
 			case "isready":
 				fmt.Print("readyok\n")
@@ -164,6 +165,14 @@ func (uci *UCI) Start() {
 					}
 					for _, move := range game.Position().ParseMoves(moves) {
 						game.Move(move)
+					}
+				} else if strings.HasPrefix(cmd, "setoption name VsHuman value ") {
+					options := strings.Fields(cmd)
+					opt := options[len(options)-1]
+					if opt == "false" {
+						uci.runner.VsHuman = false
+					} else if opt == "true" {
+						uci.runner.VsHuman = true
 					}
 				} else {
 					fmt.Println("Didn't understand", cmd)

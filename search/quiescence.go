@@ -53,6 +53,17 @@ func (e *Engine) quiescence(alpha int16, beta int16, searchHeight int8) int16 {
 		return 0
 	}
 
+	weakDelta := weakDelta(int16(searchHeight))
+
+	weakColor := NoColor
+	if e.vsHuman {
+		if e.meColor == White {
+			weakColor = Black
+		} else {
+			weakColor = White
+		}
+	}
+
 	standPat := e.staticEvals[searchHeight]
 	if standPat >= beta {
 		return beta // fail hard
@@ -112,7 +123,7 @@ func (e *Engine) quiescence(alpha int16, beta int16, searchHeight int8) int16 {
 
 		if ep, tg, hc, ok := position.MakeMove(move); ok {
 			e.positionMoves[searchHeight+1] = move
-			e.staticEvals[searchHeight+1] = Evaluate(position, pawnhash)
+			e.staticEvals[searchHeight+1] = Evaluate(position, pawnhash, weakColor, weakDelta)
 
 			e.pred.Push(position.Hash())
 			score := -e.quiescence(-beta, -alpha, searchHeight+1)

@@ -19,7 +19,7 @@ type Position struct {
 	BlackEndgamePSQT    int16
 }
 
-type PositionTag uint8
+type PositionTag uint16
 
 const (
 	WhiteCanCastleKingSide PositionTag = 1 << iota
@@ -29,6 +29,8 @@ const (
 	InCheck
 	BlackToMove
 	WhiteToMove
+	BlackWeak
+	WhiteWeak
 )
 
 func (p *Position) SetTag(tag PositionTag)      { p.Tag |= tag }

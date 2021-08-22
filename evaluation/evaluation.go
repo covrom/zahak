@@ -101,7 +101,7 @@ func PSQT(piece Piece, sq Square, isEndgame bool) int16 {
 	return 0
 }
 
-func Evaluate(position *Position, pawnhash *PawnCache) int16 {
+func Evaluate(position *Position, pawnhash *PawnCache, weakColor Color, weakDelta int16) int16 {
 	var drawDivider int16 = 0
 	// position.MaterialAndPSQT()
 	board := position.Board
@@ -278,9 +278,17 @@ func Evaluate(position *Position, pawnhash *PawnCache) int16 {
 	if turn == White {
 		evalEG = whiteCentipawnsEG - blackCentipawnsEG + pawnEG
 		evalMG = whiteCentipawnsMG - blackCentipawnsMG + pawnMG
+		if weakColor == Black && evalEG < 1000 && evalMG < 1000 {
+			evalEG += weakDelta
+			evalMG += weakDelta
+		}
 	} else {
 		evalEG = blackCentipawnsEG - whiteCentipawnsEG - pawnEG
 		evalMG = blackCentipawnsMG - whiteCentipawnsMG - pawnMG
+		if weakColor == White && evalEG < 1000 && evalMG < 1000 {
+			evalEG += weakDelta
+			evalMG += weakDelta
+		}
 	}
 
 	// The following formula overflows if I do not convert to int32 first

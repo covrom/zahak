@@ -24,6 +24,7 @@ type Runner struct {
 	depth        int8
 	move         Move
 	score        int16
+	VsHuman      bool
 }
 
 type Info struct {
@@ -133,6 +134,8 @@ type Engine struct {
 	skipMove           Move
 	skipHeight         int8
 	TempMovePicker     *MovePicker
+	vsHuman            bool
+	meColor            Color
 }
 
 var MAX_DEPTH int8 = int8(100)
